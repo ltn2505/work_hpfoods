@@ -1,0 +1,146 @@
+body {
+  background-color: #f5f7fa;
+}
+
+.sidebar {
+  background-color: #fff;
+  min-height: 100vh;
+  border-right: 1px solid #dee2e6;
+}
+
+.sidebar .list-group-item {
+  border: none;
+  padding: 15px 20px;
+  font-weight: 500;
+}
+
+.sidebar .list-group-item.active {
+  background-color: #0d6efd;
+  color: white;
+  border-radius: 8px;
+}
+
+.card-stat {
+  border-radius: 12px;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+}
+
+.table thead {
+  background-color: #f1f3f5;
+}
+
+/* Styles cho nút tạo công việc nổi */
+.position-fixed {
+  transition: all 0.3s ease;
+}
+
+.position-fixed:hover {
+  transform: translateY(-2px);
+}
+
+/* Styles cho form */
+.form-container {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+  padding: 2rem;
+}
+
+/* Styles cho file drop zone */
+.file-drop-zone {
+  border: 2px dashed #dee2e6;
+  border-radius: 8px;
+  padding: 2rem;
+  text-align: center;
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+.file-drop-zone:hover {
+  border-color: #0d6efd;
+  background-color: #f8f9fa;
+}
+
+/* Styles cho priority */
+.priority-high { color: #dc3545; }
+.priority-medium { color: #fd7e14; }
+.priority-low { color: #198754; }
+
+/* Styles cho task detail */
+.task-header {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 2rem;
+  border-radius: 12px;
+  margin-bottom: 2rem;
+}
+
+.progress-section {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.comment-section {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.comment-item {
+  border-left: 3px solid #0d6efd;
+  padding-left: 1rem;
+  margin-bottom: 1rem;
+}
+
+.file-attachment {
+  background: #f8f9fa;
+  border-radius: 8px;
+  padding: 0.75rem;
+  margin-bottom: 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.priority-badge {
+  font-size: 0.875rem;
+  padding: 0.25rem 0.75rem;
+}
+
+/* Styles cho báo cáo */
+.report-card {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.chart-container {
+  position: relative;
+  height: 300px;
+  margin: 1rem 0;
+}
+
+.metric-item {
+  text-align: center;
+  padding: 1rem;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+}
+
+.metric-number {
+  font-size: 2rem;
+  font-weight: bold;
+  margin-bottom: 0.5rem;
+}
+
+.metric-label {
+  color: #6c757d;
+  font-size: 0.875rem;
+}
