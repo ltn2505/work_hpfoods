@@ -10,6 +10,7 @@
         <label class="form-label">Tiêu đề *</label>
         <input type="text" name="title" class="form-control" required value="{{ old('title') }}">
       </div>
+
       <div class="col-lg-6">
         <label class="form-label">Người nhận</label>
         <select name="assignee_id" class="form-select">
@@ -24,6 +25,7 @@
         <label class="form-label">Mô tả</label>
         <textarea name="description" rows="5" class="form-control">{{ old('description') }}</textarea>
       </div>
+
       <div class="col-lg-6">
         <label class="form-label">Deadline</label>
         <input type="datetime-local" name="deadline" class="form-control" value="{{ old('deadline') }}">

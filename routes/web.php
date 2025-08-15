@@ -40,8 +40,9 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/task-detail/{task}', [TaskController::class, 'show'])->name('task-detail');
     // Alias cho form tạo (trùng với tasks.create nhưng để khớp UI cũ)
     Route::get('/create-task', [TaskController::class, 'create'])->name('create-task');
-
-    // Employee/Manager/Admin: trang "my tasks" & comment trên task
+    // Lưu task (nút “Giao việc”)
+    Route::post('/tasks', [TaskController::class, 'store'])->name('tasks.store');
+        // Employee/Manager/Admin: trang "my tasks" & comment trên task
     Route::middleware('role:employee,manager,admin')->group(function () {
         Route::get('/my-tasks', [TaskController::class, 'myTasks'])->name('tasks.mine');
         Route::post('/tasks/{task}/comment', [TaskController::class, 'comment'])->name('tasks.comment');
