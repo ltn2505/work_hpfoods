@@ -22,12 +22,20 @@
             <i class="bi bi-list-task me-2"></i> Danh sách
           </a>
 
-          @hasanyrole('admin|manager')
+          @auth
+          @if(Auth::user()->role === 'admin')
+            <a href="{{ route('users.index') }}"
+               class="list-group-item {{ request()->routeIs('users.*')?'active':'' }}">
+              <i class="bi bi-people me-2"></i> Nhân viên
+            </a>
+          @endif
+          @if(in_array(Auth::user()->role, ['admin', 'manager']))
             <a href="{{ route('create-task') }}"
                class="list-group-item {{ request()->routeIs('create-task')?'active':'' }}">
               <i class="bi bi-plus-square me-2"></i> Tạo công việc
             </a>
-          @endhasanyrole
+          @endif
+          @endauth
 
           <a href="{{ route('reports.index') }}"
              class="list-group-item {{ request()->routeIs('reports.index')?'active':'' }}">
@@ -43,13 +51,15 @@
     </div>
   </div>
 
-  @hasanyrole('admin|manager')
+  @auth
+  @if(in_array(Auth::user()->role, ['admin', 'manager']))
     <a href="{{ route('create-task') }}"
        class="btn btn-success position-fixed"
        style="right:24px; bottom:24px; z-index:1050;">
        ➕ Tạo công việc
     </a>
-  @endhasanyrole
+  @endif
+  @endauth
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1"></script>
