@@ -24,6 +24,7 @@ Route::middleware(['auth'])->group(function () {
     // Chỉ Admin: quản lý user
     Route::middleware('role:admin')->group(function () {
         Route::resource('users', UserController::class)->except(['show']);
+        Route::resource('departments', \App\Http\Controllers\DepartmentController::class)->except(['show']);
         // Nếu có DepartmentController thì thêm ở đây
         // Route::resource('departments', DepartmentController::class);
     });
@@ -34,6 +35,7 @@ Route::middleware(['auth'])->group(function () {
         // Cập nhật trạng thái task (nút hành động ở trang chi tiết)
         Route::get('/tasks/{task}/update-status', [TaskController::class, 'updateStatus'])
             ->name('tasks.updateStatus');
+        Route::get('/tasks/{task}/history', [TaskController::class, 'history'])->name('tasks.history');
     });
 
     // Alias để khớp link của giao diện cũ (mọi role đều có thể xem chi tiết)

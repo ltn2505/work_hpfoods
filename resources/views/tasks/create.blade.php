@@ -48,8 +48,11 @@
 
       <div class="col-12">
         <label class="form-label">File đính kèm</label>
-        <div class="file-drop-zone">Kéo & thả file vào đây<br><small>hoặc click để chọn file</small></div>
-        <input type="file" name="attachments[]" class="d-none" multiple>
+        <div class="file-drop-zone" id="fileDropZone" style="border: 2px dashed #ccc; padding: 20px; text-align: center; cursor: pointer;">
+            Kéo & thả file vào đây<br><small>hoặc click để chọn file</small>
+            <div id="fileList" style="margin-top:10px;"></div>
+        </div>
+        <input type="file" name="attachments[]" id="fileInput" class="d-none" multiple>
       </div>
 
       <div class="col-12 mt-3">
@@ -59,3 +62,43 @@
   </form>
 </div>
 @endsection
+
+@push('scripts')
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const dropZone = document.getElementById('fileDropZone');
+    const fileInput = document.getElementById('fileInput');
+    const fileList = document.getElementById('fileList');
+
+    dropZone.addEventListener('click', function() {
+        fileInput.click();
+    });
+
+    dropZone.addEventListener('dragover', function(e) {
+        e.preventDefault();
+        dropZone.style.background = '#f0f0f0';
+    });
+
+    dropZone.addEventListener('dragleave', function(e) {
+        e.preventDefault();
+        dropZone.style.background = '';
+    });
+
+    dropZone.addEventListener('drop', function(e) {
+        e.preventDefault();
+        dropZone.style.background = '';
+        fileInput.files = e.dataTransfer.files;
+        showFiles();
+    });
+
+    fileInput.addEventListener('change', showFiles);
+
+    function showFiles() {
+        fileList.innerHTML = '';
+        for (let i = 0; i < fileInput.files.length; i++) {
+            fileList.innerHTML += '<div>' + fileInput.files[i].name + '</div>';
+        }
+    }
+});
+</script>
+@endpush
