@@ -4,9 +4,13 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>@yield('title','HP Foods')</title>
+  
+  {{-- Favicon --}}
+  <link rel="icon" type="image/x-icon" href="{{ asset('favicon.ico') }}">
 
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
   <link rel="stylesheet" href="{{ asset('css/home.css') }}">
+  @stack('styles')
 </head>
 <body class="bg-light">
 
@@ -23,7 +27,7 @@
           </a>
 
           @auth
-          @if(Auth::user()->role === 'admin')
+          @if(Auth::user()->isAdmin())
             <a href="{{ route('users.index') }}"
                class="list-group-item {{ request()->routeIs('users.*')?'active':'' }}">
               <i class="bi bi-people me-2"></i> Nhân viên
@@ -33,7 +37,7 @@
               <i class="bi bi-building me-2"></i> Phòng ban
             </a>
           @endif
-          @if(in_array(Auth::user()->role, ['admin', 'manager']))
+          @if(Auth::user()->isAdmin() || Auth::user()->isManager())
             <a href="{{ route('create-task') }}"
                class="list-group-item {{ request()->routeIs('create-task')?'active':'' }}">
               <i class="bi bi-plus-square me-2"></i> Tạo công việc
@@ -41,10 +45,12 @@
           @endif
           @endauth
 
-          <a href="{{ route('reports.index') }}"
-             class="list-group-item {{ request()->routeIs('reports.index')?'active':'' }}">
-            <i class="bi bi-bar-chart me-2"></i> Báo cáo
-          </a>
+          @if(Auth::user()->isAdmin() || Auth::user()->isManager())
+            <a href="{{ route('reports.index') }}"
+               class="list-group-item {{ request()->routeIs('reports.index')?'active':'' }}">
+              <i class="bi bi-bar-chart me-2"></i> Báo cáo
+            </a>
+          @endif
         </div>
       </aside>
 
@@ -56,7 +62,7 @@
   </div>
 
   @auth
-  @if(in_array(Auth::user()->role, ['admin', 'manager']))
+  @if(Auth::user()->isAdmin() || Auth::user()->isManager())
     <a href="{{ route('create-task') }}"
        class="btn btn-success position-fixed"
        style="right:24px; bottom:24px; z-index:1050;">

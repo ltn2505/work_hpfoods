@@ -1,5 +1,5 @@
 <!-- Navbar -->
-<nav class="navbar navbar-light bg-white shadow-sm">
+<nav class="navbar navbar-light bg-white shadow-sm sticky-top" style="z-index: 1030;">
   <div class="container-fluid">
     <a class="navbar-brand fw-bold text-primary" href="{{ route('dashboard') }}">📋 Quản lý công việc</a>
     <div class="d-flex align-items-center">

@@ -13,6 +13,7 @@ return new class extends Migration {
             $table->string('title');
             $table->text('description')->nullable();
             $table->enum('status', ['todo','in_progress','done'])->default('todo');
+            $table->enum('priority', ['low','medium','high'])->nullable();
 
             $table->foreignId('department_id')->nullable()->constrained()->nullOnDelete();
             $table->foreignId('assignee_id')->nullable()->references('id')->on('users')->nullOnDelete();

@@ -151,3 +151,4 @@ php artisan test tests/Feature/DepartmentPermissionTest.php
 - Khi xóa department, cần xử lý các user thuộc department đó
 - Có thể mở rộng để thêm quyền "super manager" có thể quản lý nhiều phòng ban
 - **Admin luôn có toàn quyền** và bỏ qua mọi giới hạn phân quyền theo phòng ban
+sdx

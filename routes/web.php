@@ -32,10 +32,6 @@ Route::middleware(['auth'])->group(function () {
     // Manager & Admin: CRUD Task (tránh trùng, bỏ 'show' vì dùng alias riêng)
     Route::middleware('role:admin,manager')->group(function () {
         Route::resource('tasks', TaskController::class)->except(['show']);
-        // Cập nhật trạng thái task (nút hành động ở trang chi tiết)
-        Route::get('/tasks/{task}/update-status', [TaskController::class, 'updateStatus'])
-            ->name('tasks.updateStatus');
-        Route::get('/tasks/{task}/history', [TaskController::class, 'history'])->name('tasks.history');
     });
     
     // Lưu task (nút "Giao việc") - áp dụng middleware kiểm tra phòng ban
@@ -47,6 +43,10 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/task-detail/{task}', [TaskController::class, 'show'])->name('task-detail');
     // Alias cho form tạo (trùng với tasks.create nhưng để khớp UI cũ)
     Route::get('/create-task', [TaskController::class, 'create'])->name('create-task');
+    // Cập nhật trạng thái & xem lịch sử: cho tất cả role đã đăng nhập, quyền kiểm tra trong controller
+    Route::get('/tasks/{task}/update-status', [TaskController::class, 'updateStatus'])->name('tasks.updateStatus');
+    Route::get('/tasks/{task}/history', [TaskController::class, 'history'])->name('tasks.history');
+    Route::post('/tasks/{task}/remove-file', [TaskController::class, 'removeFile'])->name('tasks.removeFile');
     
     // Employee/Manager/Admin: trang "my tasks" & comment trên task
     Route::middleware('role:employee,manager,admin')->group(function () {

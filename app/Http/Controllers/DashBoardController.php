@@ -31,8 +31,7 @@ class DashboardController extends Controller
                 if ($req->filled('status')) {
                     $s = $req->status;
                     if ($s === 'overdue') {
-                        $query->where('status','!=','done')
-                              ->whereNotNull('deadline')->where('deadline','<',now());
+                        $query->where('status','overdue');
                     } else {
                         $query->where('status',$s);
                     }
@@ -43,10 +42,10 @@ class DashboardController extends Controller
             
             $stats = [
                 'doing'   => Task::where('status','in_progress')->count(),
-                'done'    => Task::where('status','done')->count(),
-                'todo'    => Task::where('status','todo')->count(),
-                'overdue' => Task::where('status','!=','done')
-                                 ->whereNotNull('deadline')->where('deadline','<',now())->count(),
+                'completed' => Task::where('status','completed')->count(),
+                'rejected' => Task::where('status','rejected')->count(),
+                'overdue' => Task::where('status','overdue')->count(),
+                'finished' => Task::where('status','finished')->count(),
             ];
             
             return view('welcome', compact('departments', 'departmentTasks', 'stats'));
@@ -68,23 +67,24 @@ class DashboardController extends Controller
                 'doing'   => Task::whereHas('assignee', function($q) use ($user) {
                                 $q->where('department_id', $user->department_id);
                             })->where('status','in_progress')->count(),
-                'done'    => Task::whereHas('assignee', function($q) use ($user) {
+                'completed' => Task::whereHas('assignee', function($q) use ($user) {
                                 $q->where('department_id', $user->department_id);
-                            })->where('status','done')->count(),
-                'todo'    => Task::whereHas('assignee', function($q) use ($user) {
+                            })->where('status','completed')->count(),
+                'rejected' => Task::whereHas('assignee', function($q) use ($user) {
                                 $q->where('department_id', $user->department_id);
-                            })->where('status','todo')->count(),
+                            })->where('status','rejected')->count(),
                 'overdue' => Task::whereHas('assignee', function($q) use ($user) {
                                 $q->where('department_id', $user->department_id);
-                            })->where('status','!=','done')
-                                 ->whereNotNull('deadline')->where('deadline','<',now())->count(),
+                            })->where('status','overdue')->count(),
+                'finished' => Task::whereHas('assignee', function($q) use ($user) {
+                                $q->where('department_id', $user->department_id);
+                            })->where('status','finished')->count(),
             ];
             
             if ($req->filled('status')) {
                 $s = $req->status;
                 if ($s === 'overdue') {
-                    $query->where('status','!=','done')
-                          ->whereNotNull('deadline')->where('deadline','<',now());
+                    $query->where('status','overdue');
                 } else {
                     $query->where('status',$s);
                 }
@@ -104,17 +104,16 @@ class DashboardController extends Controller
             
             $stats = [
                 'doing'   => Task::where('assignee_id',$user->id)->where('status','in_progress')->count(),
-                'done'    => Task::where('assignee_id',$user->id)->where('status','done')->count(),
-                'todo'    => Task::where('assignee_id',$user->id)->where('status','todo')->count(),
-                'overdue' => Task::where('assignee_id',$user->id)->where('status','!=','done')
-                                 ->whereNotNull('deadline')->where('deadline','<',now())->count(),
+                'completed' => Task::where('assignee_id',$user->id)->where('status','completed')->count(),
+                'rejected' => Task::where('assignee_id',$user->id)->where('status','rejected')->count(),
+                'overdue' => Task::where('assignee_id',$user->id)->where('status','overdue')->count(),
+                'finished' => Task::where('assignee_id',$user->id)->where('status','finished')->count(),
             ];
             
             if ($req->filled('status')) {
                 $s = $req->status;
                 if ($s === 'overdue') {
-                    $query->where('status','!=','done')
-                          ->whereNotNull('deadline')->where('deadline','<',now());
+                    $query->where('status','overdue');
                 } else {
                     $query->where('status',$s);
                 }
