@@ -12,7 +12,7 @@ class TaskController extends Controller
     {
         $users = User::orderBy('name')->get(['id','name']);
         // view: resources/views/tasks/create.blade.php
-        return view('tasks.create-task', compact('users'));
+        return view('tasks.create', compact('users'));
     }
 
     public function store(Request $r)
@@ -55,6 +55,16 @@ class TaskController extends Controller
         return back();
     }
 
+    public function index(Request $request)
+    {
+        $query = Task::with(['assignee', 'creator']);
+        if ($request->has('status') && in_array($request->status, ['todo','in_progress','done'])) {
+            $query->where('status', $request->status);
+        }
+        $tasks = $query->latest()->paginate(15);
+        return view('admin.tasks.index', compact('tasks'));
+    }
+
     // (Tuỳ bạn đã có hay chưa)
     public function myTasks(Request $r)
     {
@@ -84,5 +94,11 @@ class TaskController extends Controller
             'meta'    => $r->content,
         ]);
         return back();
+    }
+
+    public function history(Task $task)
+    {
+        $task->load(['activities.user']);
+        return view('tasks.history', compact('task'));
     }
 }

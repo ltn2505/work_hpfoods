@@ -30,10 +30,22 @@
 </div>
 
 <div class="mb-2">
-  <a href="{{ route('tasks.index') }}" class="btn btn-sm btn-outline-secondary">Tất cả</a>
-  <a href="{{ route('tasks.index',['status'=>'in_progress']) }}" class="btn btn-sm btn-outline-primary">Đang làm</a>
-  <a href="{{ route('tasks.index',['status'=>'done']) }}" class="btn btn-sm btn-outline-success">Hoàn thành</a>
-  <a href="{{ route('tasks.index',['status'=>'overdue']) }}" class="btn btn-sm btn-outline-danger">Trễ</a>
+  <form method="GET" action="{{ route('dashboard') }}" class="d-inline">
+    <input type="hidden" name="status" value="">
+    <button type="submit" class="btn btn-sm btn-outline-secondary{{ !request('status') ? ' active' : '' }}">Tất cả</button>
+  </form>
+  <form method="GET" action="{{ route('dashboard') }}" class="d-inline">
+    <input type="hidden" name="status" value="in_progress">
+    <button type="submit" class="btn btn-sm btn-outline-primary{{ request('status')=='in_progress' ? ' active' : '' }}">Đang làm</button>
+  </form>
+  <form method="GET" action="{{ route('dashboard') }}" class="d-inline">
+    <input type="hidden" name="status" value="done">
+    <button type="submit" class="btn btn-sm btn-outline-success{{ request('status')=='done' ? ' active' : '' }}">Hoàn thành</button>
+  </form>
+  <form method="GET" action="{{ route('dashboard') }}" class="d-inline">
+    <input type="hidden" name="status" value="overdue">
+    <button type="submit" class="btn btn-sm btn-outline-danger{{ request('status')=='overdue' ? ' active' : '' }}">Trễ</button>
+  </form>
 </div>
 
 <div class="card">

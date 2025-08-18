@@ -28,6 +28,10 @@
                class="list-group-item {{ request()->routeIs('users.*')?'active':'' }}">
               <i class="bi bi-people me-2"></i> Nhân viên
             </a>
+            <a href="{{ route('departments.index') }}"
+               class="list-group-item {{ request()->routeIs('departments.*')?'active':'' }}">
+              <i class="bi bi-building me-2"></i> Phòng ban
+            </a>
           @endif
           @if(in_array(Auth::user()->role, ['admin', 'manager']))
             <a href="{{ route('create-task') }}"
