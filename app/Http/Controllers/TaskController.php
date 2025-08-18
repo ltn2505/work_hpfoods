@@ -228,7 +228,7 @@ class TaskController extends Controller
         
         $task->delete();
         
-        return redirect()->route('welcome')->with('ok', 'Đã xóa công việc');
+        return redirect()->route('dashboard')->with('ok', 'Đã xóa công việc');
     }
 
     public function updateStatus(Task $task, Request $r)

@@ -4,93 +4,202 @@ namespace App\Http\Controllers;
 
 use App\Models\Task;
 use App\Models\Department;
+use App\Models\User;
+use Illuminate\Support\Facades\DB;
+use Carbon\Carbon;
 
 class ReportController extends Controller
 {
     public function index()
     {
+        $user = auth()->user();
+        
+        // Base query based on user role
+        $baseQuery = Task::query();
+        
+        if ($user->isManager()) {
+            // Manager chỉ thấy tasks của phòng ban mình
+            $baseQuery->where(function($q) use ($user) {
+                $q->whereHas('assignee', function($subQ) use ($user) {
+                    $subQ->where('department_id', $user->department_id);
+                })
+                ->orWhereHas('creator', function($subQ) use ($user) {
+                    $subQ->where('department_id', $user->department_id);
+                });
+            });
+        } elseif (!$user->isAdmin()) {
+            // Employee chỉ thấy tasks của mình
+            $baseQuery->where(function($q) use ($user) {
+                $q->where('assignee_id', $user->id)
+                  ->orWhere('creator_id', $user->id);
+            });
+        }
+        // Admin thấy tất cả tasks
+
+        // Summary statistics
         $summary = [
-            'total'   => Task::count(),
-            'done'    => Task::where('status','done')->count(),
-            'doing'   => Task::where('status','in_progress')->count(),
-            'todo'    => Task::where('status','todo')->count(),
-            'overdue' => Task::where('status','!=','done')->whereNotNull('deadline')->where('deadline','<',now())->count(),
+            'total'   => $baseQuery->count(),
+            'finished' => $baseQuery->where('status', 'finished')->count(),
+            'doing'   => $baseQuery->where('status', 'in_progress')->count(),
+            'completed' => $baseQuery->where('status', 'completed')->count(),
+            'rejected' => $baseQuery->where('status', 'rejected')->count(),
+            'overdue' => $baseQuery->where('status', 'overdue')->count(),
         ];
 
-        $weeks = collect(range(1,4));
-        $weekly = [
-            'labels' => $weeks->map(fn($w)=>"Tuần $w"),
-            'values' => $weeks->map(fn()=> rand(5,30)), // thay bằng thống kê thật nếu cần
+        // Weekly progress (last 4 weeks)
+        $weekly = $this->getWeeklyProgress($baseQuery);
+
+        // Department analysis
+        $byDept = $this->getDepartmentAnalysis($user);
+
+        // Top employees
+        $topEmployees = $this->getTopEmployees($user);
+
+        // Department report
+        $deptReport = $this->getDepartmentReport($user);
+
+        return view('reports.index', compact('summary', 'weekly', 'byDept', 'topEmployees', 'deptReport'));
+    }
+
+    private function getWeeklyProgress($baseQuery)
+    {
+        $weeks = [];
+        $values = [];
+        
+        for ($i = 3; $i >= 0; $i--) {
+            $weekStart = Carbon::now()->subWeeks($i)->startOfWeek();
+            $weekEnd = Carbon::now()->subWeeks($i)->endOfWeek();
+            
+            $weekTasks = (clone $baseQuery)
+                ->whereBetween('created_at', [$weekStart, $weekEnd])
+                ->where('status', 'finished')
+                ->count();
+            
+            $weeks[] = "Tuần " . (4 - $i);
+            $values[] = $weekTasks;
+        }
+
+        return [
+            'labels' => $weeks,
+            'values' => $values,
         ];
+    }
 
-        $byDept = Department::withCount('tasks')->pluck('tasks_count','name');
+    private function getDepartmentAnalysis($user)
+    {
+        $query = Department::query();
+        
+        if ($user->isManager()) {
+            $query->where('id', $user->department_id);
+        }
+        
+        return $query->withCount(['tasks' => function($q) use ($user) {
+            if ($user->isManager()) {
+                $q->where(function($subQ) use ($user) {
+                    $subQ->whereHas('assignee', function($subSubQ) use ($user) {
+                        $subSubQ->where('department_id', $user->department_id);
+                    })
+                    ->orWhereHas('creator', function($subSubQ) use ($user) {
+                        $subSubQ->where('department_id', $user->department_id);
+                    });
+                });
+            } elseif (!$user->isAdmin()) {
+                $q->where(function($subQ) use ($user) {
+                    $subQ->where('assignee_id', $user->id)
+                         ->orWhere('creator_id', $user->id);
+                });
+            }
+        }])->pluck('tasks_count', 'name');
+    }
 
-        $topEmployees = [
-            [
-                'name' => 'Minh Quân',
-                'initials' => 'MQ',
-                'color' => '2563eb',
-                'done' => 12,
-                'eff' => 95,
-                'effClass' => 'eff-green',
-            ],
-            [
-                'name' => 'Ngọc Anh',
-                'initials' => 'NA',
-                'color' => '22c55e',
-                'done' => 10,
-                'eff' => 92,
-                'effClass' => 'eff-green',
-            ],
-            [
-                'name' => 'Hồng Nhung',
-                'initials' => 'HN',
-                'color' => 'facc15',
-                'done' => 8,
-                'eff' => 85,
-                'effClass' => 'eff-yellow',
-            ],
-        ];
+    private function getTopEmployees($user)
+    {
+        $query = User::query();
+        
+        if ($user->isManager()) {
+            $query->where('department_id', $user->department_id);
+        }
+        
+        $employees = $query->withCount(['assignedTasks as finished_tasks' => function($q) {
+            $q->where('status', 'finished');
+        }])
+        ->withCount(['assignedTasks as total_tasks' => function($q) {
+            $q->whereIn('status', ['in_progress', 'completed', 'finished']);
+        }])
+        ->where('role', 'employee')
+        ->orderBy('finished_tasks', 'desc')
+        ->limit(3)
+        ->get();
 
-        $deptReport = [
-            [
-                'name' => 'Marketing',
-                'total' => 18,
-                'done' => 15,
-                'doing' => 2,
-                'overdue' => 1,
-                'eff' => 83,
-                'effClass' => 'eff-green',
-            ],
-            [
-                'name' => 'Design',
-                'total' => 12,
-                'done' => 10,
-                'doing' => 1,
-                'overdue' => 1,
-                'eff' => 83,
-                'effClass' => 'eff-green',
-            ],
-            [
-                'name' => 'Kế toán',
-                'total' => 8,
-                'done' => 6,
-                'doing' => 1,
-                'overdue' => 1,
-                'eff' => 75,
-                'effClass' => 'eff-yellow',
-            ],
-            [
-                'name' => 'IT',
-                'total' => 10,
-                'done' => 4,
-                'doing' => 4,
-                'overdue' => 2,
-                'eff' => 40,
-                'effClass' => 'eff-red',
-            ],
-        ];
+        return $employees->map(function($employee) {
+            $efficiency = $employee->total_tasks > 0 ? 
+                round(($employee->finished_tasks / $employee->total_tasks) * 100) : 0;
+            
+            $effClass = $efficiency >= 80 ? 'eff-green' : 
+                       ($efficiency >= 60 ? 'eff-yellow' : 'eff-red');
+            
+            return [
+                'name' => $employee->name,
+                'initials' => strtoupper(substr($employee->name, 0, 2)),
+                'color' => $this->getRandomColor(),
+                'done' => $employee->finished_tasks,
+                'eff' => $efficiency,
+                'effClass' => $effClass,
+            ];
+        })->toArray();
+    }
 
-        return view('reports.index', compact('summary','weekly','byDept','topEmployees','deptReport'));
+    private function getDepartmentReport($user)
+    {
+        $query = Department::query();
+        
+        if ($user->isManager()) {
+            $query->where('id', $user->department_id);
+        }
+        
+        $departments = $query->with(['tasks' => function($q) use ($user) {
+            if ($user->isManager()) {
+                $q->where(function($subQ) use ($user) {
+                    $subQ->whereHas('assignee', function($subSubQ) use ($user) {
+                        $subSubQ->where('department_id', $user->department_id);
+                    })
+                    ->orWhereHas('creator', function($subSubQ) use ($user) {
+                        $subSubQ->where('department_id', $user->department_id);
+                    });
+                });
+            } elseif (!$user->isAdmin()) {
+                $q->where(function($subQ) use ($user) {
+                    $subQ->where('assignee_id', $user->id)
+                         ->orWhere('creator_id', $user->id);
+                });
+            }
+        }])->get();
+
+        return $departments->map(function($dept) {
+            $total = $dept->tasks->count();
+            $finished = $dept->tasks->where('status', 'finished')->count();
+            $doing = $dept->tasks->where('status', 'in_progress')->count();
+            $overdue = $dept->tasks->where('status', 'overdue')->count();
+            
+            $efficiency = $total > 0 ? round(($finished / $total) * 100) : 0;
+            $effClass = $efficiency >= 80 ? 'eff-green' : 
+                       ($efficiency >= 60 ? 'eff-yellow' : 'eff-red');
+            
+            return [
+                'name' => $dept->name,
+                'total' => $total,
+                'finished' => $finished,
+                'doing' => $doing,
+                'overdue' => $overdue,
+                'eff' => $efficiency,
+                'effClass' => $effClass,
+            ];
+        })->toArray();
+    }
+
+    private function getRandomColor()
+    {
+        $colors = ['2563eb', '22c55e', 'facc15', 'ef4444', '8b5cf6', 'f97316'];
+        return $colors[array_rand($colors)];
     }
 }
