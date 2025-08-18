@@ -16,9 +16,17 @@
         <select name="assignee_id" class="form-select">
           <option value="">Chọn người nhận</option>
           @foreach($users as $u)
-            <option value="{{ $u->id }}" @selected(old('assignee_id')==$u->id)>{{ $u->name }}</option>
+            <option value="{{ $u->id }}" @selected(old('assignee_id')==$u->id)>
+              {{ $u->name }} 
+              @if($u->department_id)
+                <small class="text-muted">({{ \App\Models\Department::find($u->department_id)->name ?? 'N/A' }})</small>
+              @endif
+            </option>
           @endforeach
         </select>
+        @if(auth()->user()->isManager())
+          <small class="text-muted">Bạn chỉ có thể giao việc cho nhân viên cùng phòng ban</small>
+        @endif
       </div>
 
       <div class="col-lg-6">

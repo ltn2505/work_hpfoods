@@ -37,14 +37,18 @@ Route::middleware(['auth'])->group(function () {
             ->name('tasks.updateStatus');
         Route::get('/tasks/{task}/history', [TaskController::class, 'history'])->name('tasks.history');
     });
+    
+    // Lưu task (nút "Giao việc") - áp dụng middleware kiểm tra phòng ban
+    Route::post('/tasks', [TaskController::class, 'store'])
+        ->middleware('role:admin,manager')
+        ->name('tasks.store');
 
     // Alias để khớp link của giao diện cũ (mọi role đều có thể xem chi tiết)
     Route::get('/task-detail/{task}', [TaskController::class, 'show'])->name('task-detail');
     // Alias cho form tạo (trùng với tasks.create nhưng để khớp UI cũ)
     Route::get('/create-task', [TaskController::class, 'create'])->name('create-task');
-    // Lưu task (nút “Giao việc”)
-    Route::post('/tasks', [TaskController::class, 'store'])->name('tasks.store');
-        // Employee/Manager/Admin: trang "my tasks" & comment trên task
+    
+    // Employee/Manager/Admin: trang "my tasks" & comment trên task
     Route::middleware('role:employee,manager,admin')->group(function () {
         Route::get('/my-tasks', [TaskController::class, 'myTasks'])->name('tasks.mine');
         Route::post('/tasks/{task}/comment', [TaskController::class, 'comment'])->name('tasks.comment');
