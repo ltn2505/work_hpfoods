@@ -58,11 +58,17 @@ class UserController extends Controller
         
         $data = $request->validate([
             'name'=>'required|string|max:255',
-            'email'=>'required|email|unique:users,email',
+            'email'=>['nullable','email','unique:users,email'],
+            'phone'=>['nullable','string','max:20','unique:users,phone'],
             'password'=>'required|min:8|confirmed',
             'role'=>'required|in:admin,manager,employee',
             'department_id'=>'nullable|exists:departments,id',
         ]);
+        
+        // Kiểm tra ít nhất phải có email hoặc số điện thoại
+        if (empty($data['email']) && empty($data['phone'])) {
+            return back()->withErrors(['email'=>'Phải có ít nhất email hoặc số điện thoại.'])->withInput();
+        }
         
         // Bắt buộc department cho manager/employee
         if (in_array($data['role'], ['manager','employee']) && empty($data['department_id'])) {
@@ -125,11 +131,17 @@ class UserController extends Controller
         
         $data = $request->validate([
             'name'=>'required|string|max:255',
-            'email'=>['required','email', Rule::unique('users','email')->ignore($user->id)],
+            'email'=>['nullable','email', Rule::unique('users','email')->ignore($user->id)],
+            'phone'=>['nullable','string','max:20', Rule::unique('users','phone')->ignore($user->id)],
             'password'=>'nullable|min:8|confirmed',
             'role'=>'required|in:admin,manager,employee',
             'department_id'=>'nullable|exists:departments,id',
         ]);
+        
+        // Kiểm tra ít nhất phải có email hoặc số điện thoại
+        if (empty($data['email']) && empty($data['phone'])) {
+            return back()->withErrors(['email'=>'Phải có ít nhất email hoặc số điện thoại.'])->withInput();
+        }
         
         if (in_array($data['role'], ['manager','employee']) && empty($data['department_id'])) {
             return back()->withErrors(['department_id'=>'Bắt buộc chọn phòng ban.'])->withInput();

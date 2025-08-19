@@ -4,13 +4,13 @@
 @section('content')
 <style>
 .task-header-gradient {
-    background: linear-gradient(90deg, #6a11cb 0%, #2575fc 100%);
+    background: linear-gradient(90deg, #558EC1 0%, #5DA444 100%);
     color: #fff;
     border-radius: 18px;
     padding: 32px 32px 24px 32px;
     margin-bottom: 24px;
     position: relative;
-    box-shadow: 0 4px 24px rgba(106,17,203,0.08);
+    box-shadow: 0 4px 24px rgba(85, 142, 193, 0.15);
 }
 .task-header-gradient h2 {
     font-size: 2.2rem;
@@ -48,10 +48,12 @@
     border-radius: 8px;
     padding: 10px 0;
 }
-.action-btn-green { background: #22c55e; color: #fff; }
-.action-btn-blue { background: #2563eb; color: #fff; }
-.action-btn-yellow { background: #facc15; color: #fff; }
-.action-btn-outline { border: 1px solid #2563eb; color: #2563eb; background: #fff; }
+.action-btn-green { background: #5DA444; color: #fff; }
+.action-btn-blue { background: #558EC1; color: #fff; }
+.action-btn-yellow { background: #facc15; color: #333; }
+.action-btn-outline { border: 1px solid #558EC1; color: #558EC1; background: #fff; }
+.action-btn-success { background: #5DA444; color: #fff; }
+.action-btn-red { background: #dc2626; color: #fff; }
 .action-btn:hover { opacity: 0.9; }
 .comment-section {
     background: #fff;
@@ -60,11 +62,92 @@
     padding: 24px;
 }
 .comment-item {
-    border-left: 4px solid #6a11cb;
+    border-left: 4px solid #558EC1;
     margin-bottom: 18px;
     padding-left: 12px;
 }
-.comment-item strong { color: #2563eb; }
+.comment-item strong { color: #5DA444; }
+
+/* Modal styling */
+.modal-header {
+    background: linear-gradient(90deg, #558EC1 0%, #5DA444 100%);
+    color: #fff;
+    border-bottom: none;
+}
+.modal-header .btn-close {
+    filter: invert(1);
+}
+.modal-title {
+    color: #fff;
+}
+
+/* Form controls */
+.form-control:focus {
+    border-color: #558EC1;
+    box-shadow: 0 0 0 0.2rem rgba(85, 142, 193, 0.25);
+}
+.form-label {
+    color: #374151;
+    font-weight: 500;
+}
+
+/* Card styling */
+.card-custom {
+    border: 1px solid rgba(85, 142, 193, 0.1);
+}
+.card-custom:hover {
+    box-shadow: 0 4px 20px rgba(85, 142, 193, 0.1);
+}
+
+/* File attachment styling */
+.file-attachment {
+    border: 1px solid rgba(85, 142, 193, 0.2);
+}
+.file-attachment:hover {
+    background: rgba(85, 142, 193, 0.05);
+}
+
+/* Badge styling */
+.badge-priority {
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+/* Button hover effects */
+.action-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    transition: all 0.2s ease;
+}
+
+/* Modal animation */
+.modal.fade .modal-dialog {
+    transition: transform 0.3s ease-out;
+}
+.modal.show .modal-dialog {
+    transform: none;
+}
+
+/* Alert styling */
+.alert {
+    border-radius: 8px;
+    border-left: 4px solid;
+    padding: 12px 16px;
+}
+.alert-danger {
+    background: #fef2f2 !important;
+    border-color: #558EC1 !important;
+    color: #1e40af !important;
+}
+.alert-success {
+    background: #f0fdf4 !important;
+    border-color: #5DA444 !important;
+    color: #166534 !important;
+}
+.alert-info {
+    background: #dbeafe !important;
+    border-color: #5DA444 !important;
+    color: #166534 !important;
+}
 </style>
 
 <div class="task-header-gradient d-flex flex-column flex-md-row align-items-md-center justify-content-between">
@@ -91,9 +174,9 @@
                 {{ strtoupper($task->status) }}
             @endif
         </span>
-        <span class="badge badge-priority bg-warning text-dark" style="background:#facc15; color:#333;">Độ ưu tiên: {{ ucfirst($task->priority ?? 'Không rõ') }}</span>
+        <span class="badge badge-priority bg-warning text-dark" style="background:#5DA444; color:#fff;">Độ ưu tiên: {{ ucfirst($task->priority ?? 'Không rõ') }}</span>
     </div>
-    <a href="{{ route('dashboard') }}" class="btn btn-light" style="position:absolute;top:24px;right:32px;">&larr; Quay lại</a>
+    <a href="{{ route('dashboard') }}" class="btn btn-light" style="position:absolute;top:24px;right:32px; background:#558EC1; color:#fff; border-color:#558EC1;">&larr; Quay lại</a>
 </div>
 
 <div class="row g-4">
@@ -120,7 +203,27 @@
                     @else
                         {{ strtoupper($task->status) }}
                     @endif
-                </span>        </div>
+                </span></div>
+                
+                {{-- Hiển thị lý do từ chối nếu có --}}
+                @if($task->status == 'rejected' && $task->rejection_reason)
+                    <div class="col-12 mb-2">
+                        <div class="alert alert-danger">
+                            <i class="bi bi-exclamation-triangle me-2"></i>
+                            <strong>Lý do từ chối:</strong> {{ $task->rejection_reason }}
+                        </div>
+                    </div>
+                @endif
+                
+                {{-- Hiển thị ghi chú kết thúc nếu có --}}
+                @if($task->status == 'finished' && $task->finish_note)
+                    <div class="col-12 mb-2">
+                        <div class="alert alert-success">
+                            <i class="bi bi-check-circle me-2"></i>
+                            <strong>Ghi chú kết thúc:</strong> {{ $task->finish_note }}
+                        </div>
+                    </div>
+                @endif
     </div>
 </div>
 
@@ -136,7 +239,7 @@
                 <img id="modalImage" src="" alt="" class="img-fluid" style="max-height: 70vh;">
             </div>
             <div class="modal-footer">
-                <a id="downloadLink" href="" target="_blank" class="btn btn-primary">Tải xuống</a>
+                <a id="downloadLink" href="" target="_blank" class="btn" style="background:#558EC1; color:#fff; border-color:#558EC1;">Tải xuống</a>
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
             </div>
         </div>
@@ -184,7 +287,7 @@ function removeFile(fileIndex, fileName) {
             <form class="mb-4" action="{{ route('tasks.comment',$task) }}" method="POST">
                 @csrf
                 <textarea name="content" class="form-control mb-2" rows="3" placeholder="Viết bình luận..."></textarea>
-                <button class="btn btn-primary btn-sm">Gửi bình luận</button>
+                <button class="btn btn-sm" style="background:#558EC1; color:#fff; border-color:#558EC1;">Gửi bình luận</button>
             </form>
             @forelse($task->activities as $act)
                 <div class="comment-item">
@@ -350,14 +453,14 @@ function removeFile(fileIndex, fileName) {
             
             @if($task->status == 'completed')
                 @if(auth()->user()->isAdmin() || auth()->user()->isManager())
-                    <a href="{{ route('tasks.updateStatus',[$task,'status'=>'finished']) }}" class="btn action-btn action-btn-success w-100 mb-2">🏁 Kết thúc</a>
+                    <button type="button" class="btn action-btn action-btn-success w-100 mb-2" data-bs-toggle="modal" data-bs-target="#finishModal">🏁 Kết thúc</button>
                     <button type="button" class="btn action-btn action-btn-red w-100 mb-2" data-bs-toggle="modal" data-bs-target="#rejectModal">❌ Từ chối</button>
                 @endif
             @endif
             
             @if($task->status == 'rejected')
                 @if($task->assignee_id == auth()->id())
-                    <a href="{{ route('tasks.updateStatus',[$task,'status'=>'completed']) }}" class="btn action-btn action-btn-green w-100 mb-2">🔄 Làm lại & gửi duyệt</a>
+                    <a href="{{ route('tasks.updateStatus',[$task,'status'=>'completed']) }}" class="btn action-btn action-btn-green w-100 mb-2">🔄 Đã làm lại & gửi duyệt</a>
                 @endif
             @endif
             
@@ -378,6 +481,35 @@ function removeFile(fileIndex, fileName) {
             <a href="{{ route('tasks.history',$task) }}" class="btn action-btn action-btn-outline w-100">👁 Xem lịch sử</a>
         </div>
         
+        {{-- Modal kết thúc --}}
+        <div class="modal fade" id="finishModal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Kết thúc công việc</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <form action="{{ route('tasks.updateStatus', $task) }}" method="GET">
+                        <input type="hidden" name="status" value="finished">
+                        <div class="modal-body">
+                            <div class="mb-3">
+                                <label class="form-label">Ghi chú kết thúc <span class="text-muted">(tùy chọn)</span></label>
+                                <textarea name="finish_note" class="form-control" rows="3" placeholder="Nhập ghi chú khi kết thúc công việc..."></textarea>
+                            </div>
+                            <div class="alert" style="background:#dbeafe; border-color:#5DA444; color:#166534;">
+                                <i class="bi bi-info-circle me-2"></i>
+                                <strong>Lưu ý:</strong> Công việc sẽ được đánh dấu là hoàn thành và không thể thay đổi trạng thái nữa.
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                            <button type="submit" class="btn" style="background:#5DA444; color:#fff; border-color:#5DA444;">Kết thúc</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
         {{-- Modal từ chối --}}
         <div class="modal fade" id="rejectModal" tabindex="-1">
             <div class="modal-dialog">
@@ -393,10 +525,14 @@ function removeFile(fileIndex, fileName) {
                                 <label class="form-label">Lý do từ chối <span class="text-danger">*</span></label>
                                 <textarea name="rejection_reason" class="form-control" rows="3" required placeholder="Nhập lý do từ chối..."></textarea>
                             </div>
+                            <div class="alert" style="background:#fef3c7; border-color:#558EC1; color:#1e40af;">
+                                <i class="bi bi-exclamation-triangle me-2"></i>
+                                <strong>Lưu ý:</strong> Công việc sẽ được trả lại cho nhân viên để làm lại.
+                            </div>
                         </div>
                         <div class="modal-footer">
                             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
-                            <button type="submit" class="btn btn-danger">Từ chối</button>
+                            <button type="submit" class="btn" style="background:#dc2626; color:#fff; border-color:#dc2626;">Từ chối</button>
                         </div>
                     </form>
                 </div>

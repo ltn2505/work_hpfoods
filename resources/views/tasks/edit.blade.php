@@ -111,6 +111,30 @@
     box-shadow: 0 8px 25px rgba(40, 167, 69, 0.4);
 }
 
+/* Rejection reason styling */
+#rejection_reason_group {
+    transition: all 0.3s ease;
+    border-left: 4px solid #558EC1;
+    padding-left: 15px;
+    background: rgba(85, 142, 193, 0.05);
+    border-radius: 8px;
+    margin-top: 10px;
+}
+
+#rejection_reason_group label {
+    color: #558EC1;
+    font-weight: 600;
+}
+
+#rejection_reason_group textarea {
+    border-color: #558EC1;
+}
+
+#rejection_reason_group textarea:focus {
+    border-color: #558EC1;
+    box-shadow: 0 0 0 0.2rem rgba(85, 142, 193, 0.25);
+}
+
 /* Card styling */
 .card {
     border-radius: 15px;
@@ -328,6 +352,19 @@ input[type="datetime-local"]::-webkit-outer-spin-button {
                     @enderror
                 </div>
 
+                {{-- Rejection Reason (Conditional) --}}
+                <div class="form-group" id="rejection_reason_group" style="display: none;">
+                    <label for="rejection_reason" class="form-label">
+                        <i class="bi bi-exclamation-triangle me-1"></i>Lý do từ chối <span class="text-danger">*</span>
+                    </label>
+                    <textarea name="rejection_reason" id="rejection_reason" rows="3" 
+                              class="form-control @error('rejection_reason') is-invalid @enderror" 
+                              placeholder="Nhập lý do từ chối công việc...">{{ old('rejection_reason', $task->rejection_reason) }}</textarea>
+                    @error('rejection_reason')
+                        <div class="invalid-feedback">{{ $message }}</div>
+                    @enderror
+                </div>
+
                 {{-- Submit Button --}}
                 <div class="text-center mt-4">
                     <button type="submit" class="btn btn-submit">
@@ -382,6 +419,29 @@ document.addEventListener('DOMContentLoaded', function() {
             this.showPicker && this.showPicker();
         });
     }
+
+    // Status change handler
+    const statusSelect = document.getElementById('status');
+    const rejectionReasonGroup = document.getElementById('rejection_reason_group');
+
+    // Show/hide rejection reason based on current status
+    if (statusSelect.value === 'rejected') {
+        rejectionReasonGroup.style.display = 'block';
+    }
+
+    statusSelect.addEventListener('change', function() {
+        if (this.value === 'rejected') {
+            rejectionReasonGroup.style.display = 'block';
+            // Make rejection reason required when status is rejected
+            document.getElementById('rejection_reason').required = true;
+        } else {
+            rejectionReasonGroup.style.display = 'none';
+            // Remove required when status is not rejected
+            document.getElementById('rejection_reason').required = false;
+            // Clear rejection reason when status is not rejected
+            document.getElementById('rejection_reason').value = '';
+        }
+    });
 });
 
 function handleFileSelect(input) {

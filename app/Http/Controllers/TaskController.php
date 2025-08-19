@@ -168,8 +168,19 @@ class TaskController extends Controller
             'deadline'    => 'nullable|date',
             'priority'    => 'nullable|in:low,medium,high',
             'status'      => 'required|in:in_progress,completed,rejected,overdue,finished',
+            'rejection_reason' => 'nullable|string|max:1000',
             'files.*'     => 'nullable|file|mimes:pdf,doc,docx,xls,xlsx,ppt,pptx,jpg,jpeg,png,gif,webp,mp4,avi,mov,wmv,flv,webm|max:51200',
         ]);
+
+        // Kiểm tra lý do từ chối khi trạng thái là rejected
+        if ($data['status'] === 'rejected' && empty($data['rejection_reason'])) {
+            return back()->withErrors(['rejection_reason' => 'Phải nhập lý do từ chối khi trạng thái là "Từ chối".'])->withInput();
+        }
+
+        // Xóa lý do từ chối nếu trạng thái không phải là rejected
+        if ($data['status'] !== 'rejected') {
+            $data['rejection_reason'] = null;
+        }
 
         // Kiểm tra quyền theo phòng ban cho assignee
         if ($data['assignee_id'] && $user->isManager()) {
@@ -253,6 +264,7 @@ class TaskController extends Controller
         
         $status = $r->get('status');
         $rejectionReason = $r->get('rejection_reason');
+        $finishNote = $r->get('finish_note');
         
         // Kiểm tra workflow hợp lệ
         $validTransitions = $this->getValidStatusTransitions($task, $user);
@@ -266,16 +278,19 @@ class TaskController extends Controller
         if ($status === 'rejected' && $rejectionReason) {
             $updateData['rejection_reason'] = $rejectionReason;
         }
+        if ($status === 'finished' && $finishNote) {
+            $updateData['finish_note'] = $finishNote;
+        }
         
         $task->update($updateData);
         
-        // Tạo activity log
+        // Tạo activity log với thông tin chi tiết
         $statusMessages = [
             'in_progress' => 'Đã giao việc',
             'completed' => 'Đã hoàn thành và gửi duyệt',
-            'rejected' => 'Đã từ chối',
+            'rejected' => 'Đã từ chối' . ($rejectionReason ? ': ' . $rejectionReason : ''),
             'overdue' => 'Đã trễ hạn',
-            'finished' => 'Đã kết thúc'
+            'finished' => 'Đã kết thúc' . ($finishNote ? ': ' . $finishNote : '')
         ];
         
         $task->activities()->create([

@@ -3,6 +3,30 @@
 @section('title', 'Thêm nhân viên mới')
 
 @section('content')
+<style>
+.card-header {
+    background: linear-gradient(90deg, #558EC1 0%, #5DA444 100%);
+    color: #fff;
+    border-bottom: none;
+}
+.card-header h5 {
+    color: #fff;
+}
+
+/* Form controls */
+.form-control:focus {
+    border-color: #558EC1;
+    box-shadow: 0 0 0 0.2rem rgba(85, 142, 193, 0.25);
+}
+.form-select:focus {
+    border-color: #558EC1;
+    box-shadow: 0 0 0 0.2rem rgba(85, 142, 193, 0.25);
+}
+.form-label {
+    color: #374151;
+    font-weight: 500;
+}
+</style>
 <div class="card">
     <div class="card-header">
         <h5 class="mb-0">Thêm nhân viên mới</h5>
@@ -16,9 +40,14 @@
                 @error('name')<div class="invalid-feedback">{{ $message }}</div>@enderror
             </div>
             <div class="mb-3">
-                <label for="email" class="form-label">Email</label>
-                <input type="email" name="email" id="email" class="form-control @error('email') is-invalid @enderror" value="{{ old('email') }}" required>
+                <label for="email" class="form-label">Email <span class="text-muted">(tùy chọn nếu có số điện thoại)</span></label>
+                <input type="email" name="email" id="email" class="form-control @error('email') is-invalid @enderror" value="{{ old('email') }}">
                 @error('email')<div class="invalid-feedback">{{ $message }}</div>@enderror
+            </div>
+            <div class="mb-3">
+                <label for="phone" class="form-label">Số điện thoại <span class="text-muted">(tùy chọn nếu có email)</span></label>
+                <input type="tel" name="phone" id="phone" class="form-control @error('phone') is-invalid @enderror" value="{{ old('phone') }}" placeholder="0123456789">
+                @error('phone')<div class="invalid-feedback">{{ $message }}</div>@enderror
             </div>
             <div class="mb-3">
                 <label for="password" class="form-label">Mật khẩu</label>
@@ -49,8 +78,8 @@
                 </select>
                 @error('department_id')<div class="invalid-feedback">{{ $message }}</div>@enderror
             </div>
-            <button type="submit" class="btn btn-primary">Lưu</button>
-            <a href="{{ route('users.index') }}" class="btn btn-secondary">Quay lại</a>
+            <button type="submit" class="btn" style="background:#5DA444; color:#fff; border-color:#5DA444;">Lưu</button>
+            <a href="{{ route('users.index') }}" class="btn" style="background:#558EC1; color:#fff; border-color:#558EC1;">Quay lại</a>
         </form>
     </div>
 </div>
