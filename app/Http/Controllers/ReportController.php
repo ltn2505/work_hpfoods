@@ -157,29 +157,27 @@ class ReportController extends Controller
             $query->where('id', $user->department_id);
         }
         
-        $departments = $query->with(['tasks' => function($q) use ($user) {
-            if ($user->isManager()) {
-                $q->where(function($subQ) use ($user) {
-                    $subQ->whereHas('assignee', function($subSubQ) use ($user) {
-                        $subSubQ->where('department_id', $user->department_id);
-                    })
-                    ->orWhereHas('creator', function($subSubQ) use ($user) {
-                        $subSubQ->where('department_id', $user->department_id);
-                    });
-                });
-            } elseif (!$user->isAdmin()) {
-                $q->where(function($subQ) use ($user) {
-                    $subQ->where('assignee_id', $user->id)
-                         ->orWhere('creator_id', $user->id);
-                });
-            }
-        }])->get();
+        $departments = $query->get();
 
-        return $departments->map(function($dept) {
-            $total = $dept->tasks->count();
-            $finished = $dept->tasks->where('status', 'finished')->count();
-            $doing = $dept->tasks->where('status', 'in_progress')->count();
-            $overdue = $dept->tasks->where('status', 'overdue')->count();
+        return $departments->map(function($dept) use ($user) {
+            // Simple query: get all tasks for this department
+            $deptTasks = Task::where(function($q) use ($dept) {
+                $q->whereHas('assignee', function($subQ) use ($dept) {
+                    $subQ->where('department_id', $dept->id);
+                })
+                ->orWhereHas('creator', function($subQ) use ($dept) {
+                    $subQ->where('department_id', $dept->id);
+                });
+            })->get();
+            
+            // Debug logging
+            \Log::info("Department: {$dept->name}, Total tasks: {$deptTasks->count()}");
+            \Log::info("Tasks in department: " . $deptTasks->pluck('id', 'status')->toJson());
+            
+            $total = $deptTasks->count();
+            $finished = $deptTasks->where('status', 'finished')->count();
+            $doing = $deptTasks->where('status', 'in_progress')->count();
+            $overdue = $deptTasks->where('status', 'overdue')->count();
             
             $efficiency = $total > 0 ? round(($finished / $total) * 100) : 0;
             $effClass = $efficiency >= 80 ? 'eff-green' : 
