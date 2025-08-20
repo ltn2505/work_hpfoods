@@ -248,6 +248,10 @@ input[type="datetime-local"]::-webkit-outer-spin-button {
                     </label>
                     <textarea name="description" id="description" rows="4" class="form-control @error('description') is-invalid @enderror" 
                               placeholder="Mô tả chi tiết công việc...">{{ old('description', $task->description) }}</textarea>
+                    <div id="descriptionError" class="text-danger mt-1" style="display: none;">
+                        <i class="bi bi-exclamation-triangle me-1"></i>
+                        Không được phép nhập từ dài hơn 45 ký tự!
+                    </div>
                     @error('description')
                         <div class="invalid-feedback">{{ $message }}</div>
                     @enderror
@@ -360,6 +364,10 @@ input[type="datetime-local"]::-webkit-outer-spin-button {
                     <textarea name="rejection_reason" id="rejection_reason" rows="3" 
                               class="form-control @error('rejection_reason') is-invalid @enderror" 
                               placeholder="Nhập lý do từ chối công việc...">{{ old('rejection_reason', $task->rejection_reason) }}</textarea>
+                    <div id="rejectionReasonError" class="text-danger mt-1" style="display: none;">
+                        <i class="bi bi-exclamation-triangle me-1"></i>
+                        Không được phép nhập từ dài hơn 45 ký tự!
+                    </div>
                     @error('rejection_reason')
                         <div class="invalid-feedback">{{ $message }}</div>
                     @enderror
@@ -367,7 +375,7 @@ input[type="datetime-local"]::-webkit-outer-spin-button {
 
                 {{-- Submit Button --}}
                 <div class="text-center mt-4">
-                    <button type="submit" class="btn btn-submit">
+                    <button type="submit" class="btn btn-submit" id="submitBtn">
                         <i class="bi bi-check-circle me-2"></i>
                         Cập nhật công việc
                     </button>
@@ -420,11 +428,57 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Status change handler
     const statusSelect = document.getElementById('status');
     const rejectionReasonGroup = document.getElementById('rejection_reason_group');
+    const descriptionTextarea = document.getElementById('description');
+    const rejectionReasonTextarea = document.getElementById('rejection_reason');
+    const descriptionError = document.getElementById('descriptionError');
+    const rejectionReasonError = document.getElementById('rejectionReasonError');
+    const submitBtn = document.getElementById('submitBtn');
+    const form = document.querySelector('form');
 
-    // Show/hide rejection reason based on current status
+    function checkWordLength(text) {
+        const words = text.trim().split(/\s+/);
+        return words.every(word => word.length <= 45);
+    }
+
+    function validateTextarea(textarea, errorElement) {
+        const text = textarea.value;
+        const isValid = checkWordLength(text);
+        
+        if (!isValid) {
+            errorElement.style.display = 'block';
+            return false;
+        } else {
+            errorElement.style.display = 'none';
+            return true;
+        }
+    }
+
+    function updateSubmitButton() {
+        const descriptionValid = validateTextarea(descriptionTextarea, descriptionError);
+        const rejectionReasonValid = rejectionReasonTextarea.style.display !== 'none' ? 
+            validateTextarea(rejectionReasonTextarea, rejectionReasonError) : true;
+        
+        if (!descriptionValid || !rejectionReasonValid) {
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="bi bi-exclamation-triangle me-2"></i>Từ quá dài (>45 ký tự)';
+            submitBtn.classList.remove('btn-submit');
+            submitBtn.classList.add('btn-danger');
+        } else {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="bi bi-check-circle me-2"></i>Cập nhật công việc';
+            submitBtn.classList.remove('btn-danger');
+            submitBtn.classList.add('btn-submit');
+        }
+    }
+
+    descriptionTextarea.addEventListener('input', updateSubmitButton);
+    descriptionTextarea.addEventListener('paste', updateSubmitButton);
+    rejectionReasonTextarea.addEventListener('input', updateSubmitButton);
+    rejectionReasonTextarea.addEventListener('paste', updateSubmitButton);
+
+    // Show/hide rejection reason based on status
     if (statusSelect.value === 'rejected') {
         rejectionReasonGroup.style.display = 'block';
     }
@@ -440,6 +494,19 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('rejection_reason').required = false;
             // Clear rejection reason when status is not rejected
             document.getElementById('rejection_reason').value = '';
+        }
+        updateSubmitButton();
+    });
+
+    form.addEventListener('submit', function(e) {
+        const descriptionValid = checkWordLength(descriptionTextarea.value);
+        const rejectionReasonValid = rejectionReasonTextarea.style.display !== 'none' ? 
+            checkWordLength(rejectionReasonTextarea.value) : true;
+        
+        if (!descriptionValid || !rejectionReasonValid) {
+            e.preventDefault();
+            alert('Không được phép nhập từ dài hơn 45 ký tự!');
+            return false;
         }
     });
 });

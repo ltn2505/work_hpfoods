@@ -25,10 +25,14 @@
 
     <div class="comment-section">
       <h6 class="mb-3">Thảo luận</h6>
-      <form class="mb-3" action="{{ route('tasks.comment',$task) }}" method="POST">
+      <form class="mb-3" action="{{ route('tasks.comment',$task) }}" method="POST" id="commentForm">
         @csrf
-        <textarea name="content" class="form-control mb-2" rows="3" placeholder="Viết bình luận..."></textarea>
-        <button class="btn btn-primary btn-sm">Gửi bình luận</button>
+        <textarea name="content" class="form-control mb-2" rows="3" placeholder="Viết bình luận..." id="commentTextarea"></textarea>
+        <div id="commentError" class="text-danger mb-2" style="display: none;">
+          <i class="bi bi-exclamation-triangle me-1"></i>
+          Không được phép nhập từ dài hơn 45 ký tự!
+        </div>
+        <button class="btn btn-primary btn-sm" id="commentSubmitBtn">Gửi bình luận</button>
       </form>
 
       @forelse($task->activities as $act)
@@ -63,4 +67,49 @@
     </div>
   </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const commentTextarea = document.getElementById('commentTextarea');
+    const commentError = document.getElementById('commentError');
+    const commentSubmitBtn = document.getElementById('commentSubmitBtn');
+    const commentForm = document.getElementById('commentForm');
+
+    function checkWordLength(text) {
+        const words = text.trim().split(/\s+/);
+        return words.every(word => word.length <= 45);
+    }
+
+    function validateComment() {
+        const text = commentTextarea.value;
+        const isValid = checkWordLength(text);
+        
+        if (!isValid) {
+            commentError.style.display = 'block';
+            commentSubmitBtn.disabled = true;
+            commentSubmitBtn.innerHTML = 'Từ quá dài (>45 ký tự)';
+            commentSubmitBtn.classList.remove('btn-primary');
+            commentSubmitBtn.classList.add('btn-danger');
+        } else {
+            commentError.style.display = 'none';
+            commentSubmitBtn.disabled = false;
+            commentSubmitBtn.innerHTML = 'Gửi bình luận';
+            commentSubmitBtn.classList.remove('btn-danger');
+            commentSubmitBtn.classList.add('btn-primary');
+        }
+    }
+
+    commentTextarea.addEventListener('input', validateComment);
+    commentTextarea.addEventListener('paste', validateComment);
+
+    commentForm.addEventListener('submit', function(e) {
+        const text = commentTextarea.value;
+        if (!checkWordLength(text)) {
+            e.preventDefault();
+            alert('Không được phép nhập từ dài hơn 45 ký tự!');
+            return false;
+        }
+    });
+});
+</script>
 @endsection

@@ -284,10 +284,14 @@ function removeFile(fileIndex, fileName) {
 </script>
         <div class="comment-section mb-4">
             <h5 class="mb-3"><i class="bi bi-chat-dots me-2"></i>Thảo luận</h5>
-            <form class="mb-4" action="{{ route('tasks.comment',$task) }}" method="POST">
+            <form class="mb-4" action="{{ route('tasks.comment',$task) }}" method="POST" id="commentForm">
                 @csrf
-                <textarea name="content" class="form-control mb-2" rows="3" placeholder="Viết bình luận..."></textarea>
-                <button class="btn btn-sm" style="background:#558EC1; color:#fff; border-color:#558EC1;">Gửi bình luận</button>
+                <textarea name="content" class="form-control mb-2" rows="3" placeholder="Viết bình luận..." id="commentTextarea"></textarea>
+                <div id="commentError" class="text-danger mb-2" style="display: none;">
+                    <i class="bi bi-exclamation-triangle me-1"></i>
+                    Không được phép nhập từ dài hơn 45 ký tự!
+                </div>
+                <button class="btn btn-sm" style="background:#558EC1; color:#fff; border-color:#558EC1;" id="commentSubmitBtn">Gửi bình luận</button>
             </form>
             @forelse($task->activities as $act)
                 <div class="comment-item">
@@ -489,12 +493,16 @@ function removeFile(fileIndex, fileName) {
                         <h5 class="modal-title">Kết thúc công việc</h5>
                         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                     </div>
-                    <form action="{{ route('tasks.updateStatus', $task) }}" method="GET">
+                    <form action="{{ route('tasks.updateStatus', $task) }}" method="GET" id="finishForm">
                         <input type="hidden" name="status" value="finished">
                         <div class="modal-body">
                             <div class="mb-3">
                                 <label class="form-label">Ghi chú kết thúc <span class="text-muted">(tùy chọn)</span></label>
-                                <textarea name="finish_note" class="form-control" rows="3" placeholder="Nhập ghi chú khi kết thúc công việc..."></textarea>
+                                <textarea name="finish_note" class="form-control" rows="3" placeholder="Nhập ghi chú khi kết thúc công việc..." id="finishNoteTextarea"></textarea>
+                                <div id="finishNoteError" class="text-danger mt-1" style="display: none;">
+                                    <i class="bi bi-exclamation-triangle me-1"></i>
+                                    Không được phép nhập từ dài hơn 45 ký tự!
+                                </div>
                             </div>
                             <div class="alert" style="background:#dbeafe; border-color:#5DA444; color:#166534;">
                                 <i class="bi bi-info-circle me-2"></i>
@@ -503,7 +511,7 @@ function removeFile(fileIndex, fileName) {
                         </div>
                         <div class="modal-footer">
                             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
-                            <button type="submit" class="btn" style="background:#5DA444; color:#fff; border-color:#5DA444;">Kết thúc</button>
+                            <button type="submit" class="btn" style="background:#5DA444; color:#fff; border-color:#5DA444;" id="finishSubmitBtn">Kết thúc</button>
                         </div>
                     </form>
                 </div>
@@ -518,12 +526,16 @@ function removeFile(fileIndex, fileName) {
                         <h5 class="modal-title">Từ chối công việc</h5>
                         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                     </div>
-                    <form action="{{ route('tasks.updateStatus', $task) }}" method="GET">
+                    <form action="{{ route('tasks.updateStatus', $task) }}" method="GET" id="rejectForm">
                         <input type="hidden" name="status" value="rejected">
                         <div class="modal-body">
                             <div class="mb-3">
                                 <label class="form-label">Lý do từ chối <span class="text-danger">*</span></label>
-                                <textarea name="rejection_reason" class="form-control" rows="3" required placeholder="Nhập lý do từ chối..."></textarea>
+                                <textarea name="rejection_reason" class="form-control" rows="3" required placeholder="Nhập lý do từ chối..." id="rejectReasonTextarea"></textarea>
+                                <div id="rejectReasonError" class="text-danger mt-1" style="display: none;">
+                                    <i class="bi bi-exclamation-triangle me-1"></i>
+                                    Không được phép nhập từ dài hơn 45 ký tự!
+                                </div>
                             </div>
                             <div class="alert" style="background:#fef3c7; border-color:#558EC1; color:#1e40af;">
                                 <i class="bi bi-exclamation-triangle me-2"></i>
@@ -532,7 +544,7 @@ function removeFile(fileIndex, fileName) {
                         </div>
                         <div class="modal-footer">
                             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
-                            <button type="submit" class="btn" style="background:#dc2626; color:#fff; border-color:#dc2626;">Từ chối</button>
+                            <button type="submit" class="btn" style="background:#dc2626; color:#fff; border-color:#dc2626;" id="rejectSubmitBtn">Từ chối</button>
                         </div>
                     </form>
                 </div>
@@ -542,4 +554,103 @@ function removeFile(fileIndex, fileName) {
 
     </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Comment validation
+    const commentTextarea = document.getElementById('commentTextarea');
+    const commentError = document.getElementById('commentError');
+    const commentSubmitBtn = document.getElementById('commentSubmitBtn');
+    const commentForm = document.getElementById('commentForm');
+
+    // Finish note validation
+    const finishNoteTextarea = document.getElementById('finishNoteTextarea');
+    const finishNoteError = document.getElementById('finishNoteError');
+    const finishSubmitBtn = document.getElementById('finishSubmitBtn');
+    const finishForm = document.getElementById('finishForm');
+
+    // Rejection reason validation
+    const rejectReasonTextarea = document.getElementById('rejectReasonTextarea');
+    const rejectReasonError = document.getElementById('rejectReasonError');
+    const rejectSubmitBtn = document.getElementById('rejectSubmitBtn');
+    const rejectForm = document.getElementById('rejectForm');
+
+    function checkWordLength(text) {
+        const words = text.trim().split(/\s+/);
+        return words.every(word => word.length <= 45);
+    }
+
+    function validateTextarea(textarea, errorElement, submitBtn = null, originalText = '') {
+        const text = textarea.value;
+        const isValid = checkWordLength(text);
+        
+        if (!isValid) {
+            errorElement.style.display = 'block';
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = 'Từ quá dài (>45 ký tự)';
+                submitBtn.style.background = '#dc2626';
+                submitBtn.style.borderColor = '#dc2626';
+            }
+        } else {
+            errorElement.style.display = 'none';
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalText;
+                if (originalText === 'Kết thúc') {
+                    submitBtn.style.background = '#5DA444';
+                    submitBtn.style.borderColor = '#5DA444';
+                } else if (originalText === 'Từ chối') {
+                    submitBtn.style.background = '#dc2626';
+                    submitBtn.style.borderColor = '#dc2626';
+                }
+            }
+        }
+        return isValid;
+    }
+
+    // Comment validation
+    if (commentTextarea) {
+        commentTextarea.addEventListener('input', () => validateTextarea(commentTextarea, commentError, commentSubmitBtn, 'Gửi bình luận'));
+        commentTextarea.addEventListener('paste', () => validateTextarea(commentTextarea, commentError, commentSubmitBtn, 'Gửi bình luận'));
+        
+        commentForm.addEventListener('submit', function(e) {
+            if (!validateTextarea(commentTextarea, commentError, commentSubmitBtn, 'Gửi bình luận')) {
+                e.preventDefault();
+                alert('Không được phép nhập từ dài hơn 45 ký tự!');
+                return false;
+            }
+        });
+    }
+
+    // Finish note validation
+    if (finishNoteTextarea) {
+        finishNoteTextarea.addEventListener('input', () => validateTextarea(finishNoteTextarea, finishNoteError, finishSubmitBtn, 'Kết thúc'));
+        finishNoteTextarea.addEventListener('paste', () => validateTextarea(finishNoteTextarea, finishNoteError, finishSubmitBtn, 'Kết thúc'));
+        
+        finishForm.addEventListener('submit', function(e) {
+            const text = finishNoteTextarea.value;
+            if (text && !checkWordLength(text)) {
+                e.preventDefault();
+                alert('Không được phép nhập từ dài hơn 45 ký tự!');
+                return false;
+            }
+        });
+    }
+
+    // Rejection reason validation
+    if (rejectReasonTextarea) {
+        rejectReasonTextarea.addEventListener('input', () => validateTextarea(rejectReasonTextarea, rejectReasonError, rejectSubmitBtn, 'Từ chối'));
+        rejectReasonTextarea.addEventListener('paste', () => validateTextarea(rejectReasonTextarea, rejectReasonError, rejectSubmitBtn, 'Từ chối'));
+        
+        rejectForm.addEventListener('submit', function(e) {
+            if (!validateTextarea(rejectReasonTextarea, rejectReasonError, rejectSubmitBtn, 'Từ chối')) {
+                e.preventDefault();
+                alert('Không được phép nhập từ dài hơn 45 ký tự!');
+                return false;
+            }
+        });
+    }
+});
+</script>
 @endsection

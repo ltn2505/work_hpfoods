@@ -100,7 +100,12 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator {
                 rows="6" 
                 class="form-control border-2" 
                 placeholder="Mô tả chi tiết công việc..."
+                id="descriptionTextarea"
               >{{ old('description') }}</textarea>
+              <div id="descriptionError" class="text-danger mt-1" style="display: none;">
+                <i class="bi bi-exclamation-triangle me-1"></i>
+                Không được phép nhập từ dài hơn 45 ký tự!
+              </div>
             </div>
 
             <div class="mb-4">
@@ -183,7 +188,7 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator {
         {{-- Nút giao việc --}}
         <div class="row mt-5">
           <div class="col-12 text-center">
-            <button type="submit" class="btn btn-success btn-lg px-5 py-3 fw-bold shadow-sm">
+            <button type="submit" class="btn btn-success btn-lg px-5 py-3 fw-bold shadow-sm" id="submitBtn">
               <i class="fas fa-rocket me-2"></i>
               🚀 Giao việc
             </button>
@@ -200,6 +205,47 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator {
 // Fix datetime-local input
 document.addEventListener('DOMContentLoaded', function() {
     const deadlineInput = document.querySelector('input[name="deadline"]');
+    const descriptionTextarea = document.getElementById('descriptionTextarea');
+    const descriptionError = document.getElementById('descriptionError');
+    const submitBtn = document.getElementById('submitBtn');
+    const form = document.querySelector('form');
+
+    function checkWordLength(text) {
+        const words = text.trim().split(/\s+/);
+        return words.every(word => word.length <= 45);
+    }
+
+    function validateDescription() {
+        const text = descriptionTextarea.value;
+        const isValid = checkWordLength(text);
+        
+        if (!isValid) {
+            descriptionError.style.display = 'block';
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fas fa-exclamation-triangle me-2"></i>Từ quá dài (>45 ký tự)';
+            submitBtn.classList.remove('btn-success');
+            submitBtn.classList.add('btn-danger');
+        } else {
+            descriptionError.style.display = 'none';
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="fas fa-rocket me-2"></i>🚀 Giao việc';
+            submitBtn.classList.remove('btn-danger');
+            submitBtn.classList.add('btn-success');
+        }
+    }
+
+    descriptionTextarea.addEventListener('input', validateDescription);
+    descriptionTextarea.addEventListener('paste', validateDescription);
+
+    form.addEventListener('submit', function(e) {
+        const text = descriptionTextarea.value;
+        if (text && !checkWordLength(text)) {
+            e.preventDefault();
+            alert('Không được phép nhập từ dài hơn 45 ký tự!');
+            return false;
+        }
+    });
+
     if (deadlineInput) {
         console.log('Create: Deadline input found');
         deadlineInput.addEventListener('click', function() {
