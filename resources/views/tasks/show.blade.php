@@ -101,6 +101,58 @@
     margin-bottom: 18px;
     padding-left: 12px;
 }
+
+.attachment-item {
+    background: #f8f9fa;
+    border: 1px solid #e9ecef !important;
+    transition: all 0.3s ease;
+}
+
+.attachment-item:hover {
+    background: #e9ecef;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.file-name {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    display: block;
+}
+
+.file-name a {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    display: block;
+}
+
+.file-name:hover {
+    color: #0056b3 !important;
+}
+
+.flex-grow-1 {
+    min-width: 0;
+    flex: 1;
+}
+
+.attachment-item .d-flex {
+    min-width: 0;
+}
+
+.min-w-0 {
+    min-width: 0;
+}
+
+.comment-attachments {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 12px;
+    margin-top: 8px;
+}
 .comment-item strong { color: #5DA444; }
 
 /* Modal styling */
@@ -336,20 +388,75 @@ function removeFile(fileIndex, fileName) {
 </script>
         <div class="comment-section mb-4">
             <h5 class="mb-3"><i class="bi bi-chat-dots me-2"></i>Thảo luận</h5>
-            <form class="mb-4" action="{{ route('tasks.comment',$task) }}" method="POST" id="commentForm">
+            <form class="mb-4" action="{{ route('tasks.comment',$task) }}" method="POST" id="commentForm" enctype="multipart/form-data">
                 @csrf
                 <textarea name="content" class="form-control mb-2" rows="3" placeholder="Viết bình luận..." id="commentTextarea"></textarea>
                 <div id="commentError" class="text-danger mb-2" style="display: none;">
                     <i class="bi bi-exclamation-triangle me-1"></i>
                     Không được phép nhập từ dài hơn 45 ký tự!
                 </div>
-                <button class="btn btn-sm" style="background:#558EC1; color:#fff; border-color:#558EC1;" id="commentSubmitBtn">Gửi bình luận</button>
+                
+                {{-- File upload section --}}
+                <div class="mb-3">
+                    <label for="attachments" class="form-label">
+                        <i class="bi bi-paperclip me-1"></i>Đính kèm file (tùy chọn)
+                    </label>
+                    <input type="file" class="form-control" id="attachments" name="attachments[]" multiple 
+                           accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.jpeg,.png,.gif,.webp,.mp4,.avi,.mov,.wmv,.flv,.webm,.zip,.rar,.7z,.txt">
+                    <div class="form-text">
+                        <i class="bi bi-info-circle me-1"></i>
+                        Hỗ trợ: PDF, Word, Excel, PowerPoint, hình ảnh, video, nén. Tối đa 300MB/file.
+                    </div>
+                </div>
+                
+                {{-- Preview selected files --}}
+                <div id="filePreview" class="mb-3" style="display: none;">
+                    <h6 class="mb-2"><i class="bi bi-files me-1"></i>File đã chọn:</h6>
+                    <div id="fileList" class="row g-2"></div>
+                </div>
+                
+                <button class="btn btn-sm" style="background:#558EC1; color:#fff; border-color:#558EC1;" id="commentSubmitBtn">
+                    <i class="bi bi-send me-1"></i>Gửi bình luận
+                </button>
             </form>
             @forelse($task->activities as $act)
                 <div class="comment-item">
                     <strong>{{ $act->user->name }}</strong>
                     <small class="text-muted ms-2">{{ $act->created_at->diffForHumans() }}</small>
-                    <div>{{ $act->meta }}</div>
+                    <div class="mb-2">{{ $act->meta }}</div>
+                    
+                    {{-- Hiển thị file đính kèm --}}
+                    @if($act->attachments->count() > 0)
+                        <div class="comment-attachments mt-2">
+                            <h6 class="mb-2 text-muted"><i class="bi bi-paperclip me-1"></i>File đính kèm:</h6>
+                            <div class="row g-2">
+                                @foreach($act->attachments as $attachment)
+                                    <div class="col-md-6 col-lg-4">
+                                        <div class="attachment-item p-2 border rounded">
+                                            @if($attachment->isImage())
+                                                <div class="text-center mb-2">
+                                                    <img src="{{ $attachment->url }}" alt="{{ $attachment->original_name }}" 
+                                                         class="img-fluid rounded" style="max-height: 100px; cursor: pointer;"
+                                                         onclick="openImageModal('{{ $attachment->url }}', '{{ $attachment->original_name }}')">
+                                                </div>
+                                            @endif
+                                            <div class="d-flex align-items-center">
+                                                <i class="{{ $attachment->getFileIcon() }} me-2 text-primary flex-shrink-0"></i>
+                                                <div class="flex-grow-1 min-w-0">
+                                                    <div class="file-name" title="{{ $attachment->original_name }}">
+                                                        <a href="{{ $attachment->url }}" target="_blank" class="text-decoration-none">
+                                                            {{ $attachment->original_name }}
+                                                        </a>
+                                                    </div>
+                                                    <small class="text-muted">{{ $attachment->formatted_size }}</small>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                @endforeach
+                            </div>
+                        </div>
+                    @endif
                 </div>
             @empty
                 <div class="text-muted">Chưa có bình luận.</div>
@@ -717,6 +824,54 @@ document.addEventListener('DOMContentLoaded', function() {
                 e.preventDefault();
                 alert('Không được phép nhập từ dài hơn 45 ký tự!');
                 return false;
+            }
+        });
+    }
+
+    // File upload preview
+    const fileInput = document.getElementById('attachments');
+    const filePreview = document.getElementById('filePreview');
+    const fileList = document.getElementById('fileList');
+
+    if (fileInput) {
+        fileInput.addEventListener('change', function(e) {
+            const files = Array.from(e.target.files);
+            
+            if (files.length > 0) {
+                filePreview.style.display = 'block';
+                fileList.innerHTML = '';
+                
+                files.forEach((file, index) => {
+                    const fileItem = document.createElement('div');
+                    fileItem.className = 'col-md-6 col-lg-4';
+                    
+                    const isImage = file.type.startsWith('image/');
+                    const fileSize = (file.size / 1024).toFixed(1) + ' KB';
+                    
+                    fileItem.innerHTML = `
+                        <div class="attachment-item p-2 border rounded">
+                            ${isImage ? `
+                                <div class="text-center mb-2">
+                                    <img src="${URL.createObjectURL(file)}" alt="${file.name}" 
+                                         class="img-fluid rounded" style="max-height: 80px;">
+                                </div>
+                            ` : ''}
+                            <div class="d-flex align-items-center">
+                                <i class="bi bi-file-earmark me-2 text-primary"></i>
+                                <div class="flex-grow-1">
+                                    <div class="text-truncate" title="${file.name}">
+                                        ${file.name}
+                                    </div>
+                                    <small class="text-muted">${fileSize}</small>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    
+                    fileList.appendChild(fileItem);
+                });
+            } else {
+                filePreview.style.display = 'none';
             }
         });
     }

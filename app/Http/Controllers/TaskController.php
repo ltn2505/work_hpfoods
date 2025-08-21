@@ -14,20 +14,23 @@ class TaskController extends Controller
         
         if ($user->isAdmin()) {
             // Admin có thể giao việc cho tất cả users
-            $users = User::orderBy('name')->get(['id','name','department_id']);
+            $departments = \App\Models\Department::with(['users' => function($query) {
+                $query->orderBy('name');
+            }])->orderBy('name')->get();
         } elseif ($user->isManager()) {
             // Manager chỉ có thể giao việc cho users cùng phòng ban
-            $users = User::where('department_id', $user->department_id)
-                        ->where('id', '!=', $user->id) // Không giao việc cho chính mình
-                        ->orderBy('name')
-                        ->get(['id','name','department_id']);
+            $departments = \App\Models\Department::where('id', $user->department_id)
+                ->with(['users' => function($query) use ($user) {
+                    $query->where('id', '!=', $user->id) // Không giao việc cho chính mình
+                          ->orderBy('name');
+                }])->orderBy('name')->get();
         } else {
             // Employee không thể giao việc
             abort(403, 'Bạn không có quyền giao việc.');
         }
         
         // view: resources/views/tasks/create.blade.php
-        return view('tasks.create', compact('users'));
+        return view('tasks.create', compact('departments'));
     }
 
     public function store(Request $r)
@@ -42,20 +45,23 @@ class TaskController extends Controller
         $data = $r->validate([
             'title'       => 'required|string|max:255',
             'description' => 'nullable|string',
-            'assignee_id' => 'nullable|exists:users,id',
+            'assignee_ids' => 'nullable|array',
+            'assignee_ids.*' => 'exists:users,id',
             'deadline'    => 'nullable|date|after:today',
             'priority'    => 'nullable|in:low,medium,high',
-            'files.*'     => 'nullable|file|mimes:pdf,doc,docx,xls,xlsx,ppt,pptx,jpg,jpeg,png,gif,webp,mp4,avi,mov,wmv,flv,webm|max:51200',
+            'files.*'     => 'nullable|file|mimes:pdf,doc,docx,xls,xlsx,ppt,pptx,jpg,jpeg,png,gif,webp,mp4,avi,mov,wmv,flv,webm|max:307200',
             'is_recurring' => 'nullable|boolean',
             'recurring_start_date' => 'nullable|date|after_or_equal:today',
             'recurring_days' => 'nullable|integer|min:1|max:365',
         ]);
 
-        // Kiểm tra quyền theo phòng ban
-        if ($data['assignee_id'] && $user->isManager()) {
-            $assignee = User::find($data['assignee_id']);
-            if ($assignee->department_id !== $user->department_id) {
-                abort(403, 'Bạn chỉ có thể giao việc cho nhân viên cùng phòng ban.');
+        // Kiểm tra quyền theo phòng ban cho multiple assignees
+        if (!empty($data['assignee_ids']) && $user->isManager()) {
+            $assignees = User::whereIn('id', $data['assignee_ids'])->get();
+            foreach ($assignees as $assignee) {
+                if ($assignee->department_id !== $user->department_id) {
+                    abort(403, 'Bạn chỉ có thể giao việc cho nhân viên cùng phòng ban.');
+                }
             }
         }
 
@@ -103,6 +109,13 @@ class TaskController extends Controller
         $data['attachments'] = $attachments;
 
         $task = Task::create($data);
+
+        // Xử lý multiple assignees
+        if (!empty($data['assignee_ids'])) {
+            foreach ($data['assignee_ids'] as $assigneeId) {
+                $task->assignees()->create(['user_id' => $assigneeId]);
+            }
+        }
 
         // Ghi log hoạt động
         $task->activities()->create([
@@ -196,7 +209,7 @@ class TaskController extends Controller
             }
         }
         
-        $data = $request->validate([
+        $data =         $request->validate([
             'title'       => 'required|string|max:255',
             'description' => 'nullable|string',
             'assignee_id' => 'nullable|exists:users,id',
@@ -204,7 +217,7 @@ class TaskController extends Controller
             'priority'    => 'nullable|in:low,medium,high',
             'status'      => 'required|in:in_progress,completed,rejected,overdue,finished',
             'rejection_reason' => 'nullable|string|max:1000',
-            'files.*'     => 'nullable|file|mimes:pdf,doc,docx,xls,xlsx,ppt,pptx,jpg,jpeg,png,gif,webp,mp4,avi,mov,wmv,flv,webm|max:51200',
+            'files.*'     => 'nullable|file|mimes:pdf,doc,docx,xls,xlsx,ppt,pptx,jpg,jpeg,png,gif,webp,mp4,avi,mov,wmv,flv,webm|max:307200',
             'is_recurring' => 'nullable|boolean',
             'recurring_start_date' => 'nullable|date|after_or_equal:today',
             'recurring_days' => 'nullable|integer|min:1|max:365',
@@ -543,12 +556,35 @@ class TaskController extends Controller
             }
         }
         
-        $r->validate(['content' => 'required|string|max:2000']);
-        $task->activities()->create([
+        $r->validate([
+            'content' => 'required|string|max:2000',
+            'attachments.*' => 'nullable|file|mimes:pdf,doc,docx,xls,xlsx,ppt,pptx,jpg,jpeg,png,gif,webp,mp4,avi,mov,wmv,flv,webm,zip,rar,7z,txt|max:307200', // 300MB max
+        ]);
+        
+        // Tạo activity
+        $activity = $task->activities()->create([
             'user_id' => $user->id,
             'action'  => 'comment',
             'meta'    => $r->content,
         ]);
+        
+        // Xử lý upload file đính kèm
+        if ($r->hasFile('attachments')) {
+            foreach ($r->file('attachments') as $file) {
+                $fileName = time() . '_' . $file->getClientOriginalName();
+                $filePath = $file->storeAs('comment-attachments', $fileName, 'public');
+                
+                $activity->attachments()->create([
+                    'original_name' => $file->getClientOriginalName(),
+                    'file_name' => $fileName,
+                    'file_path' => $filePath,
+                    'file_type' => $file->getClientOriginalExtension(),
+                    'file_size' => $file->getSize(),
+                    'mime_type' => $file->getMimeType(),
+                ]);
+            }
+        }
+        
         return back();
     }
 

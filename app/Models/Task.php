@@ -42,7 +42,11 @@ class Task extends Model
     public function department(){ return $this->belongsTo(Department::class); }
     public function assignee(){ return $this->belongsTo(User::class, 'assignee_id'); }
     public function creator(){ return $this->belongsTo(User::class, 'creator_id'); }
-    public function activities(){ return $this->hasMany(TaskActivity::class); }
+    public function assignees(){ return $this->hasMany(TaskAssignee::class); }
+    public function assignedUsers(){ return $this->belongsToMany(User::class, 'task_assignees'); }
+    public function activities(){ 
+        return $this->hasMany(TaskActivity::class)->orderBy('created_at', 'desc'); 
+    }
 
     /**
      * Kiểm tra xem công việc có cần cập nhật deadline không

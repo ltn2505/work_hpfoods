@@ -2,59 +2,74 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Requests\ProfileUpdateRequest;
-use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Redirect;
-use Illuminate\View\View;
+use Illuminate\Validation\Rule;
 
 class ProfileController extends Controller
 {
-    /**
-     * Display the user's profile form.
-     */
-    public function edit(Request $request): View
+    public function __construct()
     {
-        return view('profile.edit', [
-            'user' => $request->user(),
-        ]);
+        $this->middleware('auth');
     }
 
     /**
-     * Update the user's profile information.
+     * Hiển thị trang hồ sơ cá nhân
      */
-    public function update(ProfileUpdateRequest $request): RedirectResponse
+    public function index()
     {
-        $request->user()->fill($request->validated());
-
-        if ($request->user()->isDirty('email')) {
-            $request->user()->email_verified_at = null;
-        }
-
-        $request->user()->save();
-
-        return Redirect::route('profile.edit')->with('status', 'profile-updated');
+        $user = Auth::user();
+        return view('profile.index', compact('user'));
     }
 
     /**
-     * Delete the user's account.
+     * Cập nhật thông tin cá nhân
      */
-    public function destroy(Request $request): RedirectResponse
+    public function updateProfile(Request $request)
     {
-        $request->validateWithBag('userDeletion', [
-            'password' => ['required', 'current_password'],
+        $user = Auth::user();
+
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'email' => [
+                'required',
+                'string',
+                'email',
+                'max:255',
+                Rule::unique('users')->ignore($user->id),
+            ],
+            'phone' => [
+                'nullable',
+                'string',
+                'max:20',
+                Rule::unique('users')->ignore($user->id),
+            ],
         ]);
 
-        $user = $request->user();
+        $user->update([
+            'name' => $request->name,
+            'email' => $request->email,
+            'phone' => $request->phone,
+        ]);
 
-        Auth::logout();
+        return back()->with('success', 'Thông tin cá nhân đã được cập nhật thành công!');
+    }
 
-        $user->delete();
+    /**
+     * Đổi mật khẩu (không cần mật khẩu cũ)
+     */
+    public function updatePassword(Request $request)
+    {
+        $request->validate([
+            'password' => 'required|string|min:8|confirmed',
+        ]);
 
-        $request->session()->invalidate();
-        $request->session()->regenerateToken();
+        $user = Auth::user();
+        $user->update([
+            'password' => Hash::make($request->password),
+        ]);
 
-        return Redirect::to('/');
+        return back()->with('success', 'Mật khẩu đã được thay đổi thành công!');
     }
 }

@@ -14,6 +14,7 @@ class RouteServiceProvider extends ServiceProvider
      * The path to your application's "home" route.
      *
      * Typically, users are redirected here after authentication.
+     * Note: Actual redirect logic is handled in AuthenticatedSessionController
      *
      * @var string
      */

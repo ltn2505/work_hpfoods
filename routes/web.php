@@ -5,6 +5,7 @@ use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\TaskController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ReportController;
+use App\Http\Controllers\ProfileController;
 
 /*
 |--------------------------------------------------------------------------
@@ -12,8 +13,18 @@ use App\Http\Controllers\ReportController;
 |--------------------------------------------------------------------------
 */
 
-// Vào root thì chuyển sang dashboard
-Route::get('/', fn () => redirect()->route('dashboard'));
+// Vào root thì redirect dựa trên role
+Route::get('/', function () {
+    if (auth()->check()) {
+        $user = auth()->user();
+        if ($user->isAdmin() || $user->isManager()) {
+            return redirect()->route('reports.index');
+        } else {
+            return redirect()->route('dashboard');
+        }
+    }
+    return redirect()->route('login');
+});
 
 // Các route yêu cầu đăng nhập (KHÔNG dùng verified)
 Route::middleware(['auth'])->group(function () {
@@ -61,6 +72,11 @@ Route::middleware(['auth'])->group(function () {
     Route::middleware('role:admin,manager')->group(function () {
         Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
     });
+
+    // Profile routes (cho tất cả user đã đăng nhập)
+    Route::get('/profile', [ProfileController::class, 'index'])->name('profile.index');
+    Route::post('/profile/update', [ProfileController::class, 'updateProfile'])->name('profile.update');
+    Route::post('/profile/password', [ProfileController::class, 'updatePassword'])->name('profile.password');
 });
 
 // Chỉ require auth.php nếu đã cài Breeze/Jetstream (tránh lỗi file không tồn tại)
