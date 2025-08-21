@@ -54,7 +54,42 @@
 .action-btn-outline { border: 1px solid #558EC1; color: #558EC1; background: #fff; }
 .action-btn-success { background: #5DA444; color: #fff; }
 .action-btn-red { background: #dc2626; color: #fff; }
-.action-btn:hover { opacity: 0.9; }
+.action-btn-warning { background: #f59e0b; color: #fff; }
+.action-btn:hover { 
+    opacity: 0.9; 
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    transition: all 0.3s ease;
+}
+
+/* Nút hoàn tác với hiệu ứng đặc biệt */
+.btn-undo {
+    background: linear-gradient(135deg, #f59e0b 0%, #f97316 100%);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 12px 20px;
+    font-weight: 500;
+    font-size: 1rem;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);
+}
+
+.btn-undo:hover {
+    background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
+    transform: translateY(-3px);
+    box-shadow: 0 6px 20px rgba(245, 158, 11, 0.4);
+    color: #fff;
+}
+
+.btn-undo:active {
+    transform: translateY(-1px);
+    box-shadow: 0 3px 12px rgba(245, 158, 11, 0.3);
+}
+
+.btn-undo:focus {
+    box-shadow: 0 0 0 0.2rem rgba(245, 158, 11, 0.25);
+}
 .comment-section {
     background: #fff;
     border-radius: 16px;
@@ -204,6 +239,23 @@
                         {{ strtoupper($task->status) }}
                     @endif
                 </span></div>
+                
+                {{-- Hiển thị thông tin lặp lại nếu có --}}
+                @if($task->is_recurring)
+                    <div class="col-12 mb-2">
+                        <div class="alert alert-info">
+                            <i class="bi bi-repeat me-2"></i>
+                            <strong>Lặp lại:</strong> 
+                            Công việc sẽ lặp lại mỗi <strong>{{ $task->recurring_days }} ngày</strong>
+                            @if($task->recurring_start_date)
+                                từ ngày <strong>{{ $task->recurring_start_date->format('d/m/Y') }}</strong>
+                            @endif
+                            @if($task->last_reset_date)
+                                <br><small class="text-muted">Lần cập nhật gần nhất: {{ $task->last_reset_date->format('d/m/Y') }}</small>
+                            @endif
+                        </div>
+                    </div>
+                @endif
                 
                 {{-- Hiển thị lý do từ chối nếu có --}}
                 @if($task->status == 'rejected' && $task->rejection_reason)
@@ -456,9 +508,26 @@ function removeFile(fileIndex, fileName) {
             @endif
             
             @if($task->status == 'completed')
+                {{-- Nút hoàn tác cho người được giao việc (chỉ trong vòng 3 tiếng) --}}
+                @if($task->assignee_id == auth()->id() && $task->canUndo())
+                    <form action="{{ route('tasks.undoCompletion', $task) }}" method="POST" class="mb-2">
+                        @csrf
+                        <button type="submit" class="btn action-btn action-btn-warning w-100" onclick="return confirm('Bạn có chắc muốn hoàn tác công việc này?')">
+                            ⏪ Hoàn tác
+                        </button>
+                    </form>
+                @endif
+                
                 @if(auth()->user()->isAdmin() || auth()->user()->isManager())
                     <button type="button" class="btn action-btn action-btn-success w-100 mb-2" data-bs-toggle="modal" data-bs-target="#finishModal">🏁 Kết thúc</button>
                     <button type="button" class="btn action-btn action-btn-red w-100 mb-2" data-bs-toggle="modal" data-bs-target="#rejectModal">❌ Từ chối</button>
+                @endif
+                
+                {{-- Thông báo không thể hoàn tác --}}
+                @if($task->assignee_id == auth()->id() && !$task->canUndo())
+                    <div class="alert alert-warning mb-2">
+                        <small>⚠️ Không thể hoàn tác sau 3 tiếng kể từ khi hoàn thành</small>
+                    </div>
                 @endif
             @endif
             

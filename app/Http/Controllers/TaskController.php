@@ -43,9 +43,12 @@ class TaskController extends Controller
             'title'       => 'required|string|max:255',
             'description' => 'nullable|string',
             'assignee_id' => 'nullable|exists:users,id',
-            'deadline'    => 'nullable|date',
+            'deadline'    => 'nullable|date|after:today',
             'priority'    => 'nullable|in:low,medium,high',
             'files.*'     => 'nullable|file|mimes:pdf,doc,docx,xls,xlsx,ppt,pptx,jpg,jpeg,png,gif,webp,mp4,avi,mov,wmv,flv,webm|max:51200',
+            'is_recurring' => 'nullable|boolean',
+            'recurring_start_date' => 'nullable|date|after_or_equal:today',
+            'recurring_days' => 'nullable|integer|min:1|max:365',
         ]);
 
         // Kiểm tra quyền theo phòng ban
@@ -58,6 +61,31 @@ class TaskController extends Controller
 
         $data['creator_id'] = $user->id;
         $data['status']     = 'in_progress';
+        
+        // Xử lý trường lặp lại đơn giản
+        if (!isset($data['is_recurring'])) {
+            $data['is_recurring'] = false;
+        }
+        
+        // Nếu có bật lặp lại, tính số ngày từ task gốc
+        if ($data['is_recurring']) {
+            if ($data['deadline']) {
+                $createdAt = now();
+                $deadline = \Carbon\Carbon::parse($data['deadline']);
+                $data['recurring_days'] = $createdAt->diffInDays($deadline);
+                if ($data['recurring_days'] == 0) $data['recurring_days'] = 1; // Tối thiểu 1 ngày
+            } else {
+                $data['recurring_days'] = 3; // Mặc định 3 ngày
+            }
+            
+            // Set ngày bắt đầu lặp lại nếu không có
+            if (!isset($data['recurring_start_date'])) {
+                $data['recurring_start_date'] = now()->toDateString();
+            }
+        } else {
+            $data['recurring_days'] = null;
+            $data['recurring_start_date'] = null;
+        }
 
         // Xử lý upload file
         $attachments = [];
@@ -75,6 +103,13 @@ class TaskController extends Controller
         $data['attachments'] = $attachments;
 
         $task = Task::create($data);
+
+        // Ghi log hoạt động
+        $task->activities()->create([
+            'user_id' => $user->id,
+            'action'  => 'created_task',
+            'meta'    => 'Đã tạo công việc mới',
+        ]);
 
         return redirect()->route('task-detail', $task)->with('ok', 'Đã tạo công việc');
     }
@@ -165,11 +200,14 @@ class TaskController extends Controller
             'title'       => 'required|string|max:255',
             'description' => 'nullable|string',
             'assignee_id' => 'nullable|exists:users,id',
-            'deadline'    => 'nullable|date',
+            'deadline'    => 'nullable|date|after:today',
             'priority'    => 'nullable|in:low,medium,high',
             'status'      => 'required|in:in_progress,completed,rejected,overdue,finished',
             'rejection_reason' => 'nullable|string|max:1000',
             'files.*'     => 'nullable|file|mimes:pdf,doc,docx,xls,xlsx,ppt,pptx,jpg,jpeg,png,gif,webp,mp4,avi,mov,wmv,flv,webm|max:51200',
+            'is_recurring' => 'nullable|boolean',
+            'recurring_start_date' => 'nullable|date|after_or_equal:today',
+            'recurring_days' => 'nullable|integer|min:1|max:365',
         ]);
 
         // Kiểm tra lý do từ chối khi trạng thái là rejected
@@ -204,6 +242,31 @@ class TaskController extends Controller
             }
         }
         $data['attachments'] = $attachments;
+
+        // Xử lý trường lặp lại đơn giản
+        if (!isset($data['is_recurring'])) {
+            $data['is_recurring'] = false;
+        }
+
+        // Nếu có bật lặp lại, tính số ngày từ task gốc
+        if ($data['is_recurring']) {
+            if ($data['deadline']) {
+                $createdAt = now();
+                $deadline = \Carbon\Carbon::parse($data['deadline']);
+                $data['recurring_days'] = $createdAt->diffInDays($deadline);
+                if ($data['recurring_days'] == 0) $data['recurring_days'] = 1; // Tối thiểu 1 ngày
+            } else {
+                $data['recurring_days'] = 3; // Mặc định 3 ngày
+            }
+
+            // Set ngày bắt đầu lặp lại nếu không có
+            if (!isset($data['recurring_start_date'])) {
+                $data['recurring_start_date'] = now()->toDateString();
+            }
+        } else {
+            $data['recurring_days'] = null;
+            $data['recurring_start_date'] = null;
+        }
 
         $task->update($data);
 
@@ -275,6 +338,12 @@ class TaskController extends Controller
         
         // Cập nhật trạng thái
         $updateData = ['status' => $status];
+        
+        // Nếu chuyển sang trạng thái completed, ghi lại thời gian hoàn thành
+        if ($status === 'completed') {
+            $updateData['completed_at'] = now();
+        }
+        
         if ($status === 'rejected' && $rejectionReason) {
             $updateData['rejection_reason'] = $rejectionReason;
         }
@@ -557,5 +626,98 @@ class TaskController extends Controller
         ]);
         
         return response()->json(['success' => true, 'message' => 'Đã xóa file thành công.']);
+    }
+
+    /**
+     * Set thời gian làm lại cho công việc bị từ chối
+     */
+    public function setReworkTime(Task $task, Request $request)
+    {
+        $user = $request->user();
+        
+        // Chỉ Admin và Manager mới có thể set thời gian làm lại
+        if (!$user->isAdmin() && !$user->isManager()) {
+            abort(403, 'Bạn không có quyền set thời gian làm lại.');
+        }
+        
+        // Kiểm tra quyền theo phòng ban
+        if ($user->isManager()) {
+            if ($task->assignee && $task->assignee->department_id !== $user->department_id &&
+                $task->creator && $task->creator->department_id !== $user->department_id) {
+                abort(403, 'Bạn chỉ có thể set thời gian làm lại cho task của phòng ban mình.');
+            }
+        }
+        
+        $request->validate([
+            'rework_hours' => 'required|integer|min:1|max:168' // Tối đa 7 ngày
+        ]);
+        
+        $task->setReworkDeadline($request->rework_hours);
+        
+        // Ghi log hoạt động
+        $task->activities()->create([
+            'user_id' => $user->id,
+            'action'  => 'set_rework_time',
+            'meta'    => "Đã set thời gian làm lại: {$request->rework_hours} giờ",
+        ]);
+        
+        return back()->with('ok', "Đã set thời gian làm lại: {$request->rework_hours} giờ");
+    }
+
+    /**
+     * Tạm dừng/tiếp tục công việc lặp lại
+     */
+    public function toggleRecurring(Task $task, Request $request)
+    {
+        $user = $request->user();
+        
+        // Chỉ Admin và Manager mới có thể toggle
+        if (!$user->isAdmin() && !$user->isManager()) {
+            abort(403, 'Bạn không có quyền thay đổi trạng thái lặp lại.');
+        }
+        
+        // Kiểm tra quyền theo phòng ban
+        if ($user->isManager()) {
+            if ($task->assignee && $task->assignee->department_id !== $user->department_id &&
+                $task->creator && $task->creator->department_id !== $user->department_id) {
+                abort(403, 'Bạn chỉ có thể thay đổi trạng thái lặp lại cho task của phòng ban mình.');
+            }
+        }
+        
+        $newStatus = $task->recurring_status === 'active' ? 'paused' : 'active';
+        
+        $task->update(['recurring_status' => $newStatus]);
+        
+        // Ghi log hoạt động
+        $task->activities()->create([
+            'user_id' => $user->id,
+            'action'  => 'toggle_recurring',
+            'meta'    => "Đã " . ($newStatus === 'active' ? 'tiếp tục' : 'tạm dừng') . " công việc lặp lại",
+        ]);
+        
+        return back()->with('ok', "Đã " . ($newStatus === 'active' ? 'tiếp tục' : 'tạm dừng') . " công việc lặp lại");
+    }
+
+    /**
+     * Hoàn tác công việc đã hoàn thành
+     */
+    public function undoCompletion(Task $task, Request $request)
+    {
+        $user = $request->user();
+        
+        // Chỉ người được giao việc mới có thể hoàn tác
+        if ($task->assignee_id !== $user->id) {
+            abort(403, 'Bạn chỉ có thể hoàn tác công việc của mình.');
+        }
+        
+        // Kiểm tra xem có thể hoàn tác không
+        if (!$task->canUndo()) {
+            return back()->withErrors(['undo' => 'Không thể hoàn tác công việc sau 3 tiếng kể từ khi hoàn thành.']);
+        }
+        
+        // Thực hiện hoàn tác
+        $task->undoCompletion();
+        
+        return back()->with('ok', 'Đã hoàn tác công việc về trạng thái "Đang làm"');
     }
 }

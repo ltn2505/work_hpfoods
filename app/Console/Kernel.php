@@ -12,7 +12,12 @@ class Kernel extends ConsoleKernel
      */
     protected function schedule(Schedule $schedule): void
     {
-        // $schedule->command('inspire')->hourly();
+        // Reset công việc lặp lại mỗi 7h sáng
+        $schedule->command('tasks:reset-recurring')
+                ->dailyAt('07:00')
+                ->withoutOverlapping()
+                ->runInBackground()
+                ->appendOutputTo(storage_path('logs/recurring-tasks.log'));
     }
 
     /**

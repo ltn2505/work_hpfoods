@@ -98,6 +98,27 @@
 .btn-submit {
     background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
     border: none;
+
+/* Recurring task styling */
+#recurringInfo {
+    border: 1px solid #e9ecef;
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+}
+
+#recurringInfo .form-control {
+    border: 2px solid #dee2e6;
+    transition: all 0.3s ease;
+}
+
+#recurringInfo .form-control:focus {
+    border-color: #558EC1;
+    box-shadow: 0 0 0 0.2rem rgba(85, 142, 193, 0.25);
+}
+
+.form-check-input:checked {
+    background-color: #558EC1;
+    border-color: #558EC1;
+}
     border-radius: 10px;
     padding: 15px 30px;
     font-size: 18px;
@@ -229,7 +250,7 @@ input[type="datetime-local"]::-webkit-outer-spin-button {
                 @csrf
                 @method('PUT')
 
-                {{-- Title --}}
+                {{-- Tiêu đề --}}
                 <div class="form-group">
                     <label for="title" class="form-label">
                         <i class="bi bi-type me-1"></i>Tiêu đề <span class="text-danger">*</span>
@@ -241,7 +262,7 @@ input[type="datetime-local"]::-webkit-outer-spin-button {
                     @enderror
                 </div>
 
-                {{-- Description --}}
+                {{-- Mô tả --}}
                 <div class="form-group">
                     <label for="description" class="form-label">
                         <i class="bi bi-text-paragraph me-1"></i>Mô tả
@@ -257,14 +278,14 @@ input[type="datetime-local"]::-webkit-outer-spin-button {
                     @enderror
                 </div>
 
-                {{-- File Upload --}}
+                {{-- Tệp đính kèm --}}
                 <div class="form-group">
                     <label class="form-label">
-                        <i class="bi bi-paperclip me-1"></i>File đính kèm
+                        <i class="bi bi-paperclip me-1"></i>Tệp đính kèm
                     </label>
                     <div class="file-drop-zone" onclick="document.getElementById('files').click()">
                         <i class="bi bi-cloud-upload display-4 text-muted mb-3"></i>
-                        <p class="mb-2 fw-semibold">Kéo thả file vào đây hoặc click để chọn</p>
+                        <p class="mb-2 fw-semibold">Kéo thả tệp vào đây hoặc click để chọn</p>
                         <small class="text-muted">
                             Hỗ trợ: PDF, DOC, DOCX, XLS, XLSX, PPT, PPTX, JPG, PNG, GIF, WEBP, MP4, AVI, MOV, WMV, FLV, WEBM (Tối đa 50MB)
                         </small>
@@ -276,7 +297,7 @@ input[type="datetime-local"]::-webkit-outer-spin-button {
                     @enderror
                 </div>
 
-                {{-- Assignee --}}
+                {{-- Người phụ trách --}}
                 <div class="form-group">
                     <label for="assignee_id" class="form-label">
                         <i class="bi bi-person me-1"></i>Người phụ trách
@@ -304,13 +325,18 @@ input[type="datetime-local"]::-webkit-outer-spin-button {
                     <input type="datetime-local" name="deadline" id="deadline" 
                            class="form-control @error('deadline') is-invalid @enderror"
                            value="{{ old('deadline', $task->deadline ? $task->deadline->format('Y-m-d\TH:i') : '') }}"
-                           placeholder="dd/mm/yyyy --:--">
+                           placeholder="dd/mm/yyyy --:--"
+                           min="{{ now()->format('Y-m-d\TH:i') }}">
+                    <!-- <div class="form-text text-info">
+                        <i class="fas fa-info-circle me-1"></i>
+                        Deadline phải là thời gian trong tương lai
+                    </div> -->
                     @error('deadline')
                         <div class="invalid-feedback">{{ $message }}</div>
                     @enderror
                 </div>
 
-                {{-- Priority --}}
+                {{-- Độ ưu tiên --}}
                 <div class="form-group">
                     <label class="form-label">
                         <i class="bi bi-flag me-1"></i>Độ ưu tiên
@@ -339,7 +365,74 @@ input[type="datetime-local"]::-webkit-outer-spin-button {
                     @enderror
                 </div>
 
-                {{-- Status --}}
+                {{-- Lặp lại công việc --}}
+                <div class="form-group">
+                    <div class="form-check">
+                        <input
+                            class="form-check-input"
+                            type="checkbox"
+                            name="is_recurring"
+                            id="isRecurring"
+                            value="1"
+                            {{ old('is_recurring', $task->is_recurring) ? 'checked' : '' }}
+                        >
+                        <label class="form-check-label fw-bold text-dark" for="isRecurring">
+                            <i class="fas fa-repeat me-2"></i>Lặp lại công việc
+                        </label>
+                        <div class="form-text text-info">
+                            <i class="fas fa-info-circle me-1"></i>
+                            Hệ thống sẽ tự động tính số ngày từ task gốc và cập nhật deadline định kỳ
+                        </div>
+                    </div>
+
+                    {{-- Thông tin lặp lại (hiển thị khi có deadline) --}}
+                    <div id="recurringInfo" class="mt-3 p-3 bg-light rounded" style="display: {{ old('is_recurring', $task->is_recurring) ? 'block' : 'none' }};">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold text-dark">Ngày bắt đầu:</label>
+                                <input
+                                    type="date"
+                                    name="recurring_start_date"
+                                    id="recurringStartDate"
+                                    class="form-control border-2"
+                                    value="{{ old('recurring_start_date', $task->recurring_start_date ? $task->recurring_start_date->format('Y-m-d') : now()->format('Y-m-d')) }}"
+                                    min="{{ now()->format('Y-m-d') }}"
+                                >
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold text-dark">Thời gian lặp lại:</label>
+                                <div class="input-group">
+                                    <input
+                                        type="number"
+                                        name="recurring_days"
+                                        id="recurringDays"
+                                        class="form-control border-2"
+                                        value="{{ old('recurring_days', $task->recurring_days) }}"
+                                        min="1"
+                                        max="365"
+                                        readonly
+                                    >
+                                    <span class="input-group-text">ngày</span>
+                                </div>
+                                <small class="text-muted">Tự động tính từ deadline</small>
+                            </div>
+                        </div>
+                        <div class="mt-2">
+                            <small class="text-info">
+                                <i class="fas fa-calendar-alt me-1"></i>
+                                <span id="recurringPreview">
+                                    @if($task->is_recurring && $task->recurring_days)
+                                        Công việc sẽ lặp lại mỗi {{ $task->recurring_days }} ngày
+                                    @else
+                                        Ví dụ: Nếu deadline là 22/8, công việc sẽ lặp lại mỗi 3 ngày
+                                    @endif
+                                </span>
+                            </small>
+                        </div>
+                    </div>
+                </div>
+
+                {{-- Trạng thái --}}
                 <div class="form-group">
                     <label for="status" class="form-label">
                         <i class="bi bi-check2-circle me-1"></i>Trạng thái <span class="text-danger">*</span>
@@ -509,6 +602,63 @@ document.addEventListener('DOMContentLoaded', function() {
             return false;
         }
     });
+
+    // Xử lý checkbox lặp lại
+    const isRecurringCheckbox = document.getElementById('isRecurring');
+    const recurringInfo = document.getElementById('recurringInfo');
+
+    if (isRecurringCheckbox && recurringInfo) {
+        isRecurringCheckbox.addEventListener('change', function() {
+            if (this.checked) {
+                recurringInfo.style.display = 'block';
+                updateRecurringInfo();
+            } else {
+                recurringInfo.style.display = 'none';
+            }
+        });
+    }
+
+    // Cập nhật thông tin lặp lại
+    function updateRecurringInfo() {
+        const deadlineInput = document.querySelector('input[name="deadline"]');
+        const recurringDaysInput = document.getElementById('recurringDays');
+        const recurringPreview = document.getElementById('recurringPreview');
+        const recurringStartDate = document.getElementById('recurringStartDate');
+
+        if (deadlineInput && deadlineInput.value && isRecurringCheckbox.checked) {
+            const startDate = new Date();
+            const deadline = new Date(deadlineInput.value);
+            const daysDiff = Math.ceil((deadline - startDate) / (1000 * 60 * 60 * 24));
+
+            if (daysDiff > 0) {
+                recurringDaysInput.value = daysDiff;
+
+                // Cập nhật preview
+                const deadlineFormatted = deadline.toLocaleDateString('vi-VN');
+                recurringPreview.textContent = `Công việc sẽ lặp lại mỗi ${daysDiff} ngày từ ngày bắt đầu`;
+
+                // Cập nhật ngày bắt đầu lặp lại
+                if (recurringStartDate) {
+                    recurringStartDate.value = startDate.toISOString().split('T')[0];
+                }
+            }
+        }
+    }
+
+    // Cập nhật thông tin lặp lại khi deadline thay đổi
+    const deadlineInput = document.querySelector('input[name="deadline"]');
+    if (deadlineInput) {
+        deadlineInput.addEventListener('change', function() {
+            if (isRecurringCheckbox && isRecurringCheckbox.checked) {
+                updateRecurringInfo();
+            }
+        });
+    }
+
+    // Khởi tạo thông tin lặp lại nếu đã có sẵn
+    if (isRecurringCheckbox && isRecurringCheckbox.checked) {
+        updateRecurringInfo();
+    }
 });
 
 function handleFileSelect(input) {

@@ -156,7 +156,18 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator {
                 class="form-control form-control-lg border-2" 
                 value="{{ old('deadline') }}"
                 style="z-index: 9999; position: relative; background-color: white; cursor: pointer;"
+                min="{{ now()->format('Y-m-d\TH:i') }}"
               >
+              <!-- <div class="form-text text-info">
+                <i class="fas fa-info-circle me-1"></i>
+                Deadline phải là thời gian trong tương lai
+              </div> -->
+              @error('deadline')
+                <div class="text-danger mt-1">
+                  <i class="bi bi-exclamation-triangle me-1"></i>
+                  {{ $message }}
+                </div>
+              @enderror
             </div>
 
             <div class="mb-4">
@@ -179,6 +190,67 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator {
                   <label class="form-check-label fw-medium" for="priorityHigh">
                     <span class="badge bg-danger px-3 py-2">Cao</span>
                   </label>
+                </div>
+              </div>
+            </div>
+
+            {{-- Lặp lại công việc --}}
+            <div class="mb-4">
+              <div class="form-check">
+                <input 
+                  class="form-check-input" 
+                  type="checkbox" 
+                  name="is_recurring" 
+                  id="isRecurring" 
+                  value="1"
+                  {{ old('is_recurring') ? 'checked' : '' }}
+                >
+                <label class="form-check-label fw-bold text-dark" for="isRecurring">
+                  <i class="fas fa-repeat me-2"></i>Lặp lại công việc
+                </label>
+                <div class="form-text text-info">
+                  <i class="fas fa-info-circle me-1"></i>
+                  Hệ thống sẽ tự động tính số ngày từ task gốc và cập nhật deadline định kỳ
+                </div>
+              </div>
+              
+              {{-- Thông tin lặp lại (hiển thị khi có deadline) --}}
+              <div id="recurringInfo" class="mt-3 p-3 bg-light rounded" style="display: none;">
+                <div class="row">
+                  <div class="col-md-6">
+                    <label class="form-label fw-bold text-dark">Ngày bắt đầu:</label>
+                    <input 
+                      type="date" 
+                      name="recurring_start_date" 
+                      id="recurringStartDate"
+                      class="form-control border-2" 
+                      value="{{ old('recurring_start_date', now()->format('Y-m-d')) }}"
+                      min="{{ now()->format('Y-m-d') }}"
+                    >
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label fw-bold text-dark">Thời gian lặp lại:</label>
+                    <div class="input-group">
+                      <input 
+                        type="number" 
+                        name="recurring_days" 
+                        id="recurringDays"
+                        class="form-control border-2" 
+                        value="{{ old('recurring_days') }}"
+                        min="1"
+                        max="365"
+                        readonly
+                      >
+                      <span class="input-group-text">ngày</span>
+                    </div>
+                    <small class="text-muted">Tự động tính từ deadline</small>
+                  </div>
+                </div>
+                <div class="mt-2">
+                  <small class="text-info">
+                    <i class="fas fa-calendar-alt me-1"></i>
+                    <span id="recurringPreview">Ví dụ: Nếu deadline là 22/8, công việc sẽ lặp lại mỗi 3 ngày</span>
+                  </small>
                 </div>
               </div>
             </div>
@@ -256,6 +328,70 @@ document.addEventListener('DOMContentLoaded', function() {
             console.log('Create: Deadline input focused');
         });
     }
+
+    
+
+          // Validation deadline không được trong quá khứ
+          const deadlineInput = document.querySelector('input[name="deadline"]');
+          if (deadlineInput) {
+              deadlineInput.addEventListener('change', function() {
+                  const selectedDate = new Date(this.value);
+                  const now = new Date();
+                  
+                  if (selectedDate <= now) {
+                      this.setCustomValidity('Deadline không được đặt trong quá khứ');
+                      this.classList.add('is-invalid');
+                  } else {
+                      this.setCustomValidity('');
+                      this.classList.remove('is-invalid');
+                  }
+                  
+                  // Cập nhật thông tin lặp lại
+                  updateRecurringInfo();
+              });
+          }
+
+          // Xử lý checkbox lặp lại
+          const isRecurringCheckbox = document.getElementById('isRecurring');
+          const recurringInfo = document.getElementById('recurringInfo');
+          
+          if (isRecurringCheckbox && recurringInfo) {
+              isRecurringCheckbox.addEventListener('change', function() {
+                  if (this.checked) {
+                      recurringInfo.style.display = 'block';
+                      updateRecurringInfo();
+                  } else {
+                      recurringInfo.style.display = 'none';
+                  }
+              });
+          }
+
+          // Cập nhật thông tin lặp lại
+          function updateRecurringInfo() {
+              const deadlineInput = document.querySelector('input[name="deadline"]');
+              const recurringDaysInput = document.getElementById('recurringDays');
+              const recurringPreview = document.getElementById('recurringPreview');
+              const recurringStartDate = document.getElementById('recurringStartDate');
+              
+              if (deadlineInput && deadlineInput.value && isRecurringCheckbox.checked) {
+                  const startDate = new Date();
+                  const deadline = new Date(deadlineInput.value);
+                  const daysDiff = Math.ceil((deadline - startDate) / (1000 * 60 * 60 * 24));
+                  
+                  if (daysDiff > 0) {
+                      recurringDaysInput.value = daysDiff;
+                      
+                      // Cập nhật preview
+                      const deadlineFormatted = deadline.toLocaleDateString('vi-VN');
+                      recurringPreview.textContent = `Công việc sẽ lặp lại mỗi ${daysDiff} ngày từ ngày bắt đầu`;
+                      
+                      // Cập nhật ngày bắt đầu lặp lại
+                      if (recurringStartDate) {
+                          recurringStartDate.value = startDate.toISOString().split('T')[0];
+                      }
+                  }
+              }
+          }
     
     // File upload handling
     const dropZone = document.getElementById('fileDropZone');

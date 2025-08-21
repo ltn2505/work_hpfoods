@@ -61,9 +61,36 @@
 
     <div class="report-card">
       <h6 class="mb-3">Hành động</h6>
-      <a href="{{ route('tasks.updateStatus',[$task,'status'=>'done']) }}" class="btn btn-success w-100 mb-2">✅ Hoàn thành</a>
-      <a href="{{ route('tasks.updateStatus',[$task,'status'=>'in_progress']) }}" class="btn btn-primary w-100 mb-2">🔄 Cập nhật trạng thái</a>
+      
+      {{-- Nút hoàn thành --}}
+      @if($task->status === 'in_progress')
+        <a href="{{ route('tasks.updateStatus',[$task,'status'=>'completed']) }}" class="btn btn-success w-100 mb-2">✅ Hoàn thành</a>
+      @endif
+      
+      {{-- Nút hoàn tác (chỉ hiển thị khi status = completed và trong vòng 3 tiếng) --}}
+      @if($task->status === 'completed' && $task->canUndo())
+        <form action="{{ route('tasks.undoCompletion', $task) }}" method="POST" class="mb-2">
+          @csrf
+          <button type="submit" class="btn btn-warning w-100" onclick="return confirm('Bạn có chắc muốn hoàn tác công việc này?')">
+            Hoàn tác ({{ 3 - $task->completed_at->diffInHours(now()) }}h còn lại)
+          </button>
+        </form>
+      @endif
+      
+      {{-- Nút cập nhật trạng thái --}}
+      @if($task->status === 'in_progress')
+        <a href="{{ route('tasks.updateStatus',[$task,'status'=>'in_progress']) }}" class="btn btn-primary w-100 mb-2">🔄 Cập nhật trạng thái</a>
+      @endif
+      
+      {{-- Nút xem lịch sử --}}
       <a href="{{ route('tasks.history',$task) }}" class="btn btn-outline-info w-100">👁 Xem lịch sử</a>
+      
+      {{-- Thông báo không thể hoàn tác --}}
+      @if($task->status === 'completed' && !$task->canUndo())
+        <div class="alert alert-warning mt-2">
+          <small>⚠️ Không thể hoàn tác sau 3 tiếng kể từ khi hoàn thành</small>
+        </div>
+      @endif
     </div>
   </div>
 </div>
