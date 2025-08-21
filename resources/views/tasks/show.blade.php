@@ -273,7 +273,15 @@
             <div class="row mb-2">
                 <div class="col-md-6 mb-2"><i class="bi bi-person-badge me-1"></i> <strong>Người giao:</strong> {{ $task->creator->name }}</div>
                 <div class="col-md-6 mb-2"><i class="bi bi-calendar-date me-1"></i> <strong>Ngày giao:</strong> {{ $task->created_at->format('d/m/Y') }}</div>
-                <div class="col-md-6 mb-2"><i class="bi bi-person me-1"></i> <strong>Người nhận:</strong> {{ $task->assignee?->name ?? '—' }}</div>
+                <div class="col-md-6 mb-2"><i class="bi bi-person me-1"></i> <strong>Người nhận:</strong> 
+                    @if($task->assignedUsers && $task->assignedUsers->count() > 0)
+                        @foreach($task->assignedUsers as $user)
+                            <span class="badge bg-primary me-1">{{ $user->name }}</span>
+                        @endforeach
+                    @else
+                        —
+                    @endif
+                </div>
                 <div class="col-md-6 mb-2"><i class="bi bi-calendar2-week me-1"></i> <strong>Deadline:</strong> {{ $task->deadline? $task->deadline->format('d/m/Y'):'—' }}</div>
                 <div class="col-md-6 mb-2"><i class="bi bi-exclamation-triangle me-1"></i> <strong>Độ ưu tiên:</strong> <span class="text-danger">{{ ucfirst($task->priority ?? 'Không rõ') }}</span></div>
                 <div class="col-md-6 mb-2"><i class="bi bi-check2-circle me-1"></i> <strong>Trạng thái:</strong> <span class="text-dark">
@@ -606,7 +614,7 @@ function removeFile(fileIndex, fileName) {
             
             {{-- Hiển thị nút theo trạng thái và role --}}
             @if($task->status == 'in_progress')
-                @if($task->assignee_id == auth()->id())
+                @if($task->assignedUsers->where('id', auth()->id())->count() > 0)
                     <a href="{{ route('tasks.updateStatus',[$task,'status'=>'completed']) }}" class="btn action-btn action-btn-green w-100 mb-2">✅ Hoàn thành & gửi duyệt</a>
                 @endif
                 @if(auth()->user()->isAdmin() || auth()->user()->isManager())
@@ -616,7 +624,7 @@ function removeFile(fileIndex, fileName) {
             
             @if($task->status == 'completed')
                 {{-- Nút hoàn tác cho người được giao việc (chỉ trong vòng 3 tiếng) --}}
-                @if($task->assignee_id == auth()->id() && $task->canUndo())
+                @if($task->assignedUsers->where('id', auth()->id())->count() > 0 && $task->canUndo())
                     <form action="{{ route('tasks.undoCompletion', $task) }}" method="POST" class="mb-2">
                         @csrf
                         <button type="submit" class="btn action-btn action-btn-warning w-100" onclick="return confirm('Bạn có chắc muốn hoàn tác công việc này?')">
@@ -631,7 +639,7 @@ function removeFile(fileIndex, fileName) {
                 @endif
                 
                 {{-- Thông báo không thể hoàn tác --}}
-                @if($task->assignee_id == auth()->id() && !$task->canUndo())
+                @if($task->assignedUsers->where('id', auth()->id())->count() > 0 && !$task->canUndo())
                     <div class="alert alert-warning mb-2">
                         <small>⚠️ Không thể hoàn tác sau 3 tiếng kể từ khi hoàn thành</small>
                     </div>
@@ -639,13 +647,13 @@ function removeFile(fileIndex, fileName) {
             @endif
             
             @if($task->status == 'rejected')
-                @if($task->assignee_id == auth()->id())
+                @if($task->assignedUsers->where('id', auth()->id())->count() > 0)
                     <a href="{{ route('tasks.updateStatus',[$task,'status'=>'completed']) }}" class="btn action-btn action-btn-green w-100 mb-2">🔄 Đã làm lại & gửi duyệt</a>
                 @endif
             @endif
             
             @if($task->status == 'overdue')
-                @if($task->assignee_id == auth()->id())
+                @if($task->assignedUsers->where('id', auth()->id())->count() > 0)
                     <a href="{{ route('tasks.updateStatus',[$task,'status'=>'in_progress']) }}" class="btn action-btn action-btn-blue w-100 mb-2">🚀 Bắt đầu làm</a>
                 @endif
                 @if(auth()->user()->isAdmin() || auth()->user()->isManager())

@@ -222,6 +222,130 @@ input[type="datetime-local"]::-webkit-outer-spin-button {
     -webkit-appearance: none;
     margin: 0;
 }
+
+/* Department and User Selection Styles */
+.department-dropdown {
+    position: relative;
+    display: inline-block;
+}
+
+.dropdown-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    background: white;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    min-width: 200px;
+}
+
+.dropdown-toggle:hover {
+    border-color: #558EC1;
+    box-shadow: 0 0 0 0.2rem rgba(85, 142, 193, 0.25);
+}
+
+.dropdown-menu {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: white;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    z-index: 1000;
+    max-height: 200px;
+    overflow-y: auto;
+    display: none;
+}
+
+.dropdown-menu.show {
+    display: block;
+}
+
+.dropdown-item {
+    padding: 8px 16px;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.dropdown-item:hover {
+    background-color: #f8f9fa;
+}
+
+.dropdown-item input[type="checkbox"] {
+    margin-right: 8px;
+}
+
+.user-selection-area {
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    padding: 16px;
+    background: #f8f9fa;
+}
+
+.user-list {
+    max-height: 200px;
+    overflow-y: auto;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    background: white;
+}
+
+.user-item {
+    padding: 8px 12px;
+    border-bottom: 1px solid #f1f3f4;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.user-item:hover {
+    background-color: #e3f2fd;
+}
+
+.user-item.selected {
+    background-color: #558EC1;
+    color: white;
+}
+
+.user-item:last-child {
+    border-bottom: none;
+}
+
+.selected-users-display {
+    min-height: 50px;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    padding: 12px;
+    background: #f8f9fa;
+}
+
+.selected-user-badge {
+    display: inline-flex;
+    align-items: center;
+    background: #558EC1;
+    color: white;
+    padding: 4px 8px;
+    border-radius: 16px;
+    margin: 2px;
+    font-size: 0.875rem;
+}
+
+.selected-user-badge i {
+    margin-left: 6px;
+    cursor: pointer;
+    font-size: 0.75rem;
+}
+
+.selected-user-badge i:hover {
+    color: #ff6b6b;
+}
 </style>
 @endpush
 
@@ -299,21 +423,84 @@ input[type="datetime-local"]::-webkit-outer-spin-button {
 
                 {{-- Người phụ trách --}}
                 <div class="form-group">
-                    <label for="assignee_id" class="form-label">
-                        <i class="bi bi-person me-1"></i>Người phụ trách
+                    <label class="form-label">
+                        <i class="bi bi-people me-1"></i>Người phụ trách
                     </label>
-                    <select name="assignee_id" id="assignee_id" class="form-select @error('assignee_id') is-invalid @enderror">
-                        <option value="">Chọn người phụ trách</option>
-                        @foreach($users as $user)
-                            @if($user)
-                                <option value="{{ $user->id }}" {{ old('assignee_id', $task->assignee_id) == $user->id ? 'selected' : '' }}>
-                                    {{ $user->name ?? 'Không có tên' }} @if($user->department) ({{ $user->department->name }}) @endif
-                                </option>
+                    
+                    {{-- Chọn phòng ban --}}
+                    <div class="mb-3">
+                        <label class="form-label fw-bold text-dark">
+                            <i class="bi bi-building me-1"></i>Chọn phòng ban:
+                        </label>
+                        <div class="department-dropdown">
+                            <div class="dropdown-toggle" onclick="toggleDepartmentDropdown()">
+                                <span id="selectedDepartmentsText">Chọn phòng ban</span>
+                                <i class="bi bi-chevron-down"></i>
+                            </div>
+                            <div class="dropdown-menu" id="departmentDropdown">
+                                @foreach($departments as $department)
+                                    <div class="dropdown-item">
+                                        <input type="checkbox" id="dept_{{ $department->id }}" 
+                                               value="{{ $department->id }}" 
+                                               class="department-checkbox"
+                                               onchange="filterUsersByDepartments()">
+                                        <label for="dept_{{ $department->id }}">{{ $department->name }}</label>
+                                    </div>
+                                @endforeach
+                            </div>
+                        </div>
+                        <button type="button" class="btn btn-sm btn-primary mt-2" onclick="confirmDepartmentSelection()">
+                            <i class="bi bi-check me-1"></i>Xác nhận phòng ban
+                        </button>
+                    </div>
+
+                    {{-- Chọn người phụ trách --}}
+                    <div class="mb-3">
+                        <label class="form-label fw-bold text-dark">
+                            <i class="bi bi-person me-1"></i>Chọn người phụ trách:
+                        </label>
+                        <div class="user-selection-area">
+                            <div class="search-box mb-2">
+                                <input type="text" id="userSearch" class="form-control" 
+                                       placeholder="Tìm kiếm theo tên..." 
+                                       onkeyup="filterUsers()">
+                            </div>
+                            <div class="user-list" id="userList">
+                                <!-- Users will be loaded here -->
+                            </div>
+                        </div>
+                    </div>
+
+                    {{-- Hiển thị người đã chọn --}}
+                    <div class="selected-users mb-3">
+                        <label class="form-label fw-bold text-dark">
+                            <i class="bi bi-check-circle me-1"></i>Người đã chọn:
+                        </label>
+                        <div id="selectedUsersDisplay" class="selected-users-display">
+                            @if($task->assignedUsers && $task->assignedUsers->count() > 0)
+                                @foreach($task->assignedUsers as $user)
+                                    <span class="selected-user-badge" data-user-id="{{ $user->id }}">
+                                        {{ $user->name }} ({{ $user->department->name }})
+                                        <i class="bi bi-x" onclick="removeUser({{ $user->id }})"></i>
+                                    </span>
+                                @endforeach
+                            @else
+                                <span class="text-muted">Chưa chọn người phụ trách</span>
                             @endif
-                        @endforeach
-                    </select>
-                    @error('assignee_id')
-                        <div class="invalid-feedback">{{ $message }}</div>
+                        </div>
+                    </div>
+
+                    {{-- Hidden inputs for form submission --}}
+                    <div id="assigneeInputs">
+                        @if($task->assignedUsers && $task->assignedUsers->count() > 0)
+                            @foreach($task->assignedUsers as $user)
+                                <input type="hidden" name="assignee_ids[]" value="{{ $user->id }}">
+                            @endforeach
+                        @endif
+                    </div>
+
+                    @error('assignee_ids')
+                        <div class="text-danger small mt-1">{{ $message }}</div>
                     @enderror
                 </div>
 
@@ -363,6 +550,27 @@ input[type="datetime-local"]::-webkit-outer-spin-button {
                     @error('priority')
                         <div class="text-danger small mt-1">{{ $message }}</div>
                     @enderror
+                </div>
+
+                {{-- Công việc đa phòng ban --}}
+                <div class="form-group">
+                    <div class="form-check">
+                        <input
+                            class="form-check-input"
+                            type="checkbox"
+                            name="is_multi_department"
+                            id="isMultiDepartment"
+                            value="1"
+                            {{ old('is_multi_department', $task->is_multi_department) ? 'checked' : '' }}
+                        >
+                        <label class="form-check-label fw-bold text-dark" for="isMultiDepartment">
+                            <i class="bi bi-diagram-3 me-2"></i>Công việc đa phòng ban
+                        </label>
+                        <div class="form-text text-info">
+                            <i class="fas fa-info-circle me-1"></i>
+                            Đánh dấu công việc này cần sự hợp tác giữa nhiều phòng ban
+                        </div>
+                    </div>
                 </div>
 
                 {{-- Lặp lại công việc --}}
@@ -539,6 +747,182 @@ document.addEventListener('DOMContentLoaded', function() {
         const text = textarea.value;
         const isValid = checkWordLength(text);
         
+        if (!isValid) {
+            errorElement.style.display = 'block';
+            submitBtn.disabled = true;
+        } else {
+            errorElement.style.display = 'none';
+            submitBtn.disabled = false;
+        }
+    }
+
+    // Department and User Selection JavaScript
+    let allUsers = [];
+    let selectedUsers = new Set();
+
+    // Initialize with existing assigned users
+    @if($task->assignedUsers && $task->assignedUsers->count() > 0)
+        @foreach($task->assignedUsers as $user)
+            selectedUsers.add({{ $user->id }});
+        @endforeach
+    @endif
+
+    function toggleDepartmentDropdown() {
+        const dropdown = document.getElementById('departmentDropdown');
+        dropdown.classList.toggle('show');
+    }
+
+    function confirmDepartmentSelection() {
+        const selectedDepartments = Array.from(document.querySelectorAll('.department-checkbox:checked'))
+            .map(cb => cb.value);
+        
+        if (selectedDepartments.length === 0) {
+            alert('Vui lòng chọn ít nhất một phòng ban');
+            return;
+        }
+
+        // Update display text
+        const textElement = document.getElementById('selectedDepartmentsText');
+        const departmentNames = Array.from(document.querySelectorAll('.department-checkbox:checked'))
+            .map(cb => cb.nextElementSibling.textContent);
+        textElement.textContent = departmentNames.join(', ');
+
+        // Load users from selected departments
+        loadUsersByDepartments(selectedDepartments);
+        
+        // Close dropdown
+        document.getElementById('departmentDropdown').classList.remove('show');
+    }
+
+    function loadUsersByDepartments(departmentIds) {
+        // Filter users by selected departments
+        const filteredUsers = allUsers.filter(user => 
+            departmentIds.includes(user.department_id.toString())
+        );
+        
+        displayUsers(filteredUsers);
+    }
+
+    function displayUsers(users) {
+        const userList = document.getElementById('userList');
+        userList.innerHTML = '';
+
+        users.forEach(user => {
+            const userItem = document.createElement('div');
+            userItem.className = 'user-item';
+            userItem.dataset.userId = user.id;
+            userItem.innerHTML = `
+                <span>${user.name} (${user.department_name})</span>
+                <input type="checkbox" ${selectedUsers.has(user.id) ? 'checked' : ''} 
+                       onchange="toggleUser(${user.id}, '${user.name}', '${user.department_name}')">
+            `;
+            userList.appendChild(userItem);
+        });
+    }
+
+    function toggleUser(userId, userName, departmentName) {
+        if (selectedUsers.has(userId)) {
+            selectedUsers.delete(userId);
+            removeUserFromDisplay(userId);
+        } else {
+            selectedUsers.add(userId);
+            addUserToDisplay(userId, userName, departmentName);
+        }
+        updateAssigneeInputs();
+    }
+
+    function addUserToDisplay(userId, userName, departmentName) {
+        const display = document.getElementById('selectedUsersDisplay');
+        const badge = document.createElement('span');
+        badge.className = 'selected-user-badge';
+        badge.dataset.userId = userId;
+        badge.innerHTML = `${userName} (${departmentName}) <i class="bi bi-x" onclick="removeUser(${userId})"></i>`;
+        display.appendChild(badge);
+    }
+
+    function removeUserFromDisplay(userId) {
+        const badge = document.querySelector(`.selected-user-badge[data-user-id="${userId}"]`);
+        if (badge) {
+            badge.remove();
+        }
+    }
+
+    function removeUser(userId) {
+        selectedUsers.delete(userId);
+        removeUserFromDisplay(userId);
+        
+        // Uncheck checkbox
+        const checkbox = document.querySelector(`.user-item[data-user-id="${userId}"] input[type="checkbox"]`);
+        if (checkbox) {
+            checkbox.checked = false;
+        }
+        
+        updateAssigneeInputs();
+    }
+
+    function updateAssigneeInputs() {
+        const container = document.getElementById('assigneeInputs');
+        container.innerHTML = '';
+        
+        selectedUsers.forEach(userId => {
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'assignee_ids[]';
+            input.value = userId;
+            container.appendChild(input);
+        });
+    }
+
+    function filterUsers() {
+        const searchTerm = document.getElementById('userSearch').value.toLowerCase();
+        const userItems = document.querySelectorAll('.user-item');
+        
+        userItems.forEach(item => {
+            const userName = item.querySelector('span').textContent.toLowerCase();
+            if (userName.includes(searchTerm)) {
+                item.style.display = 'flex';
+            } else {
+                item.style.display = 'none';
+            }
+        });
+    }
+
+    // Load all users on page load
+    @if(isset($users))
+        allUsers = @json($users->map(function($user) {
+            return [
+                'id' => $user->id,
+                'name' => $user->name,
+                'department_id' => $user->department_id,
+                'department_name' => $user->department ? $user->department->name : 'N/A'
+            ];
+        }));
+    @endif
+
+    // Initialize user display if there are existing assignees
+    @if($task->assignedUsers && $task->assignedUsers->count() > 0)
+        const selectedDepartments = new Set();
+        @foreach($task->assignedUsers as $user)
+            selectedDepartments.add({{ $user->department_id }});
+        @endforeach
+        
+        // Check department checkboxes
+        selectedDepartments.forEach(deptId => {
+            const checkbox = document.getElementById(`dept_${deptId}`);
+            if (checkbox) checkbox.checked = true;
+        });
+        
+        // Update display text
+        const deptNames = Array.from(selectedDepartments).map(id => {
+            const checkbox = document.getElementById(`dept_${id}`);
+            return checkbox ? checkbox.nextElementSibling.textContent : '';
+        }).filter(name => name);
+        
+        document.getElementById('selectedDepartmentsText').textContent = deptNames.join(', ');
+        
+        // Load users from selected departments
+        loadUsersByDepartments(Array.from(selectedDepartments));
+    @endif
         if (!isValid) {
             errorElement.style.display = 'block';
             return false;

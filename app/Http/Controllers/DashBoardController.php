@@ -18,15 +18,20 @@ class DashboardController extends Controller
             
             $departmentTasks = [];
             foreach ($departments as $department) {
-                $query = Task::with(['assignee', 'creator'])
+                $query = Task::with(['assignedUsers' => function($q) use ($department) {
+                                    $q->where('department_id', $department->id);
+                                }, 'creator'])
                             ->where(function($q) use ($department) {
-                                $q->whereHas('assignee', function($subQ) use ($department) {
+                                // Chỉ hiển thị task ở phòng ban của creator hoặc có assignees thuộc phòng ban này
+                                $q->whereHas('creator', function($subQ) use ($department) {
                                     $subQ->where('department_id', $department->id);
                                 })
-                                ->orWhereHas('creator', function($subQ) use ($department) {
+                                ->orWhereHas('assignedUsers', function($subQ) use ($department) {
                                     $subQ->where('department_id', $department->id);
                                 });
-                            });
+                            })
+                            ->where('is_multi_department', false) // Chỉ hiển thị task đơn phòng ban
+                            ->distinct(); // Tránh trùng lặp task
                 
                 // Filter theo trạng thái (hỗ trợ nhiều trạng thái)
                 if ($req->has('statuses') && is_array($req->statuses) && count($req->statuses) > 0) {
@@ -70,13 +75,19 @@ class DashboardController extends Controller
                 'finished' => Task::where('status','finished')->count(),
             ];
             
-            return view('welcome', compact('departments', 'departmentTasks', 'stats'));
+            // Lấy multi-department tasks
+            $multiDepartmentTasks = Task::with(['assignedUsers', 'creator'])
+                ->where('is_multi_department', true)
+                ->latest()
+                ->get();
+            
+            return view('welcome', compact('departments', 'departmentTasks', 'stats', 'multiDepartmentTasks'));
             
         } elseif ($user->isManager()) {
             // Manager chỉ thấy tasks của phòng ban mình
-            $query = Task::with(['assignee','creator'])
+            $query = Task::with(['assignedUsers','creator'])
                         ->where(function($q) use ($user) {
-                            $q->whereHas('assignee', function($subQ) use ($user) {
+                            $q->whereHas('assignedUsers', function($subQ) use ($user) {
                                 $subQ->where('department_id', $user->department_id);
                             })
                             ->orWhereHas('creator', function($subQ) use ($user) {
@@ -85,19 +96,19 @@ class DashboardController extends Controller
                         });
             
             $stats = [
-                'doing'   => Task::whereHas('assignee', function($q) use ($user) {
+                'doing'   => Task::whereHas('assignedUsers', function($q) use ($user) {
                                 $q->where('department_id', $user->department_id);
                             })->where('status','in_progress')->count(),
-                'completed' => Task::whereHas('assignee', function($q) use ($user) {
+                'completed' => Task::whereHas('assignedUsers', function($q) use ($user) {
                                 $q->where('department_id', $user->department_id);
                             })->where('status','completed')->count(),
-                'rejected' => Task::whereHas('assignee', function($q) use ($user) {
+                'rejected' => Task::whereHas('assignedUsers', function($q) use ($user) {
                                 $q->where('department_id', $user->department_id);
                             })->where('status','rejected')->count(),
-                'overdue' => Task::whereHas('assignee', function($q) use ($user) {
+                'overdue' => Task::whereHas('assignedUsers', function($q) use ($user) {
                                 $q->where('department_id', $user->department_id);
                             })->where('status','overdue')->count(),
-                'finished' => Task::whereHas('assignee', function($q) use ($user) {
+                'finished' => Task::whereHas('assignedUsers', function($q) use ($user) {
                                 $q->where('department_id', $user->department_id);
                             })->where('status','finished')->count(),
             ];
@@ -134,22 +145,44 @@ class DashboardController extends Controller
             }
 
             $tasks = $query->paginate(10);
-            return view('welcome', compact('tasks','stats'));
+            
+            // Lấy multi-department tasks mà manager có thể thấy
+            $multiDepartmentTasks = Task::with(['assignedUsers', 'creator'])
+                ->where('is_multi_department', true)
+                ->whereHas('assignedUsers', function($q) use ($user) {
+                    $q->where('department_id', $user->department_id);
+                })
+                ->latest()
+                ->get();
+            
+            return view('welcome', compact('tasks','stats', 'multiDepartmentTasks'));
             
         } else {
             // Employee chỉ thấy tasks của mình
-            $query = Task::with(['assignee','creator'])
+            $query = Task::with(['assignedUsers','creator'])
                         ->where(function($q) use ($user) {
-                            $q->where('assignee_id', $user->id)
-                              ->orWhere('creator_id', $user->id);
+                            $q->whereHas('assignedUsers', function($subQ) use ($user) {
+                                $subQ->where('id', $user->id);
+                            })
+                            ->orWhere('creator_id', $user->id);
                         });
             
             $stats = [
-                'doing'   => Task::where('assignee_id',$user->id)->where('status','in_progress')->count(),
-                'completed' => Task::where('assignee_id',$user->id)->where('status','completed')->count(),
-                'rejected' => Task::where('assignee_id',$user->id)->where('status','rejected')->count(),
-                'overdue' => Task::where('assignee_id',$user->id)->where('status','overdue')->count(),
-                'finished' => Task::where('assignee_id',$user->id)->where('status','finished')->count(),
+                'doing'   => Task::whereHas('assignedUsers', function($q) use ($user) {
+                                $q->where('id', $user->id);
+                            })->where('status','in_progress')->count(),
+                'completed' => Task::whereHas('assignedUsers', function($q) use ($user) {
+                                $q->where('id', $user->id);
+                            })->where('status','completed')->count(),
+                'rejected' => Task::whereHas('assignedUsers', function($q) use ($user) {
+                                $q->where('id', $user->id);
+                            })->where('status','rejected')->count(),
+                'overdue' => Task::whereHas('assignedUsers', function($q) use ($user) {
+                                $q->where('id', $user->id);
+                            })->where('status','overdue')->count(),
+                'finished' => Task::whereHas('assignedUsers', function($q) use ($user) {
+                                $q->where('id', $user->id);
+                            })->where('status','finished')->count(),
             ];
             
             // Filter theo trạng thái (hỗ trợ nhiều trạng thái)

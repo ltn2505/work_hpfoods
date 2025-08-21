@@ -26,7 +26,8 @@ class Task extends Model
         'last_reset_date',
         'rework_hours',
         'rework_deadline',
-        'completed_at'
+        'completed_at',
+        'is_multi_department'
     ];
     
     protected $casts = [
@@ -37,6 +38,7 @@ class Task extends Model
         'last_reset_date' => 'date',
         'rework_deadline' => 'datetime',
         'completed_at' => 'datetime',
+        'is_multi_department' => 'boolean',
     ];
 
     public function department(){ return $this->belongsTo(Department::class); }

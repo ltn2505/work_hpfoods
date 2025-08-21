@@ -167,7 +167,7 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator {
 
   <div class="card shadow-sm border-0">
     <div class="card-body p-4">
-      <form action="{{ route('tasks.store') }}" method="POST" enctype="multipart/form-data">
+      <form action="{{ route('tasks.store') }}" method="POST" enctype="multipart/form-data" id="createTaskForm">
         @csrf
         <div class="row g-4">
           {{-- Cột bên trái --}}
@@ -806,6 +806,23 @@ document.addEventListener('DOMContentLoaded', function() {
             updateUserDropdownText();
         }
     };
+
+    // Debug form submission
+    document.getElementById('createTaskForm').addEventListener('submit', function(e) {
+        const checkedUsers = document.querySelectorAll('.user-checkbox:checked');
+        console.log('Form submitting...');
+        console.log('Checked users:', checkedUsers.length);
+        
+        if (checkedUsers.length === 0) {
+            alert('Vui lòng chọn ít nhất một người nhận!');
+            e.preventDefault();
+            return false;
+        }
+        
+        checkedUsers.forEach(user => {
+            console.log('Selected user:', user.value, user.nextElementSibling.textContent.trim());
+        });
+    });
 
 
 });
