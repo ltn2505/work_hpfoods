@@ -35,7 +35,7 @@
                         </p>
                     </div>
 
-                    <form method="POST" action="{{ route('password.update') }}">
+                    <form method="POST" action="{{ route('password.reset.store') }}">
                         @csrf
 
                         <div class="mb-3">
@@ -43,15 +43,20 @@
                                 <i class="fas fa-lock me-2"></i>
                                 Mật khẩu mới <span class="text-danger">*</span>
                             </label>
-                            <input 
-                                type="password" 
-                                class="form-control @error('password') is-invalid @enderror" 
-                                id="password" 
-                                name="password" 
-                                placeholder="Nhập mật khẩu mới"
-                                required 
-                                autofocus
-                            >
+                            <div class="input-group">
+                                <input 
+                                    type="password" 
+                                    class="form-control @error('password') is-invalid @enderror" 
+                                    id="password" 
+                                    name="password" 
+                                    placeholder="Nhập mật khẩu mới"
+                                    required 
+                                    autofocus
+                                >
+                                <button class="btn btn-outline-secondary" type="button" id="togglePassword">
+                                    <i class="fas fa-eye" id="togglePasswordIcon"></i>
+                                </button>
+                            </div>
                             @error('password')
                                 <div class="invalid-feedback">
                                     {{ $message }}
@@ -68,14 +73,19 @@
                                 <i class="fas fa-lock me-2"></i>
                                 Xác nhận mật khẩu <span class="text-danger">*</span>
                             </label>
-                            <input 
-                                type="password" 
-                                class="form-control @error('password_confirmation') is-invalid @enderror" 
-                                id="password_confirmation" 
-                                name="password_confirmation" 
-                                placeholder="Nhập lại mật khẩu mới"
-                                required
-                            >
+                            <div class="input-group">
+                                <input 
+                                    type="password" 
+                                    class="form-control @error('password_confirmation') is-invalid @enderror" 
+                                    id="password_confirmation" 
+                                    name="password_confirmation" 
+                                    placeholder="Nhập lại mật khẩu mới"
+                                    required
+                                >
+                                <button class="btn btn-outline-secondary" type="button" id="togglePasswordConfirm">
+                                    <i class="fas fa-eye" id="togglePasswordConfirmIcon"></i>
+                                </button>
+                            </div>
                             @error('password_confirmation')
                                 <div class="invalid-feedback">
                                     {{ $message }}
@@ -174,6 +184,33 @@ document.addEventListener('DOMContentLoaded', function() {
     
     passwordInput.addEventListener('input', checkPasswordMatch);
     confirmInput.addEventListener('input', checkPasswordMatch);
+    
+    // Toggle password visibility
+    function togglePasswordVisibility(inputId, buttonId, iconId) {
+        const input = document.getElementById(inputId);
+        const button = document.getElementById(buttonId);
+        const icon = document.getElementById(iconId);
+        
+        button.addEventListener('click', function() {
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.classList.remove('fa-eye');
+                icon.classList.add('fa-eye-slash');
+                button.classList.remove('btn-outline-secondary');
+                button.classList.add('btn-secondary');
+            } else {
+                input.type = 'password';
+                icon.classList.remove('fa-eye-slash');
+                icon.classList.add('fa-eye');
+                button.classList.remove('btn-secondary');
+                button.classList.add('btn-outline-secondary');
+            }
+        });
+    }
+    
+    // Initialize toggle for both password fields
+    togglePasswordVisibility('password', 'togglePassword', 'togglePasswordIcon');
+    togglePasswordVisibility('password_confirmation', 'togglePasswordConfirm', 'togglePasswordConfirmIcon');
 });
 </script>
 @endsection

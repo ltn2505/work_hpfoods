@@ -41,6 +41,9 @@
                                         <i class="bi bi-lock text-muted"></i>
                                     </span>
                                     <x-text-input id="password" class="form-control border-start-0 ps-0" type="password" name="password" required autocomplete="current-password" placeholder="Nhập mật khẩu" />
+                                    <button class="btn btn-outline-secondary" type="button" onclick="togglePasswordVisibility('password', 'togglePassword', 'togglePasswordIcon')">
+                                        <i class="fas fa-eye" id="togglePasswordIcon"></i>
+                                    </button>
                                 </div>
                                 <x-input-error :messages="$errors->get('password')" class="mt-2" />
                             </div>
@@ -84,6 +87,28 @@
     </div>
 </div>
 
+<script>
+function togglePasswordVisibility(inputId, buttonId, iconId) {
+    const input = document.getElementById(inputId);
+    const button = document.getElementById(buttonId);
+    const icon = document.getElementById(iconId);
+    
+    if (input.type === 'password') {
+        input.type = 'text';
+        icon.classList.remove('fa-eye');
+        icon.classList.add('fa-eye-slash');
+        button.classList.remove('btn-outline-secondary');
+        button.classList.add('btn-secondary');
+    } else {
+        input.type = 'password';
+        icon.classList.remove('fa-eye-slash');
+        icon.classList.add('fa-eye');
+        button.classList.remove('btn-secondary');
+        button.classList.add('btn-outline-secondary');
+    }
+}
+</script>
+
 <style>
 .bg-gradient-primary {
     background: linear-gradient(135deg, #558EC1 0%, #5DA444 100%);
@@ -100,7 +125,7 @@
 }
 
 .form-control {
-    border-radius: 0 8px 8px 0;
+    border-radius: 0;
     border: 1px solid #dee2e6;
     padding: 12px 16px;
     font-size: 16px;
@@ -131,6 +156,22 @@
 
 .text-primary {
     color: #558EC1 !important;
+}
+
+.input-group .btn {
+    border-radius: 0 8px 8px 0;
+    border-left: none;
+    padding: 12px 16px;
+    min-width: 50px;
+}
+
+.input-group .btn:hover {
+    background-color: #6c757d;
+    border-color: #6c757d;
+}
+
+.input-group .btn i {
+    font-size: 16px;
 }
 
 .fw-semibold {
