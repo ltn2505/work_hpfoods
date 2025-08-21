@@ -189,13 +189,25 @@ Hệ thống sử dụng Laravel Breeze để xử lý xác thực người dùn
 
 #### Quên mật khẩu (Forgot Password)
 - **Route**: `POST /forgot-password`
-- **Controller**: `PasswordResetLinkController@store`
-- **Tính năng**: Gửi email reset password
+- **Controller**: `ForgotPasswordController@sendResetLink`
+- **Tính năng**: 
+  - Nhập email hoặc số điện thoại để xác minh tài khoản
+  - Kiểm tra tài khoản tồn tại trong database
+  - Chuyển hướng đến form đặt lại mật khẩu
+- **Validation**: Tài khoản phải tồn tại trong hệ thống
+- **Bảo mật**: Sử dụng session để tracking, không cần token
 
 #### Đặt lại mật khẩu (Reset Password)
 - **Route**: `POST /reset-password`
-- **Controller**: `NewPasswordController@store`
-- **Validation**: Token, email, password, password_confirmation
+- **Controller**: `ForgotPasswordController@resetPassword`
+- **Tính năng**:
+  - Nhập mật khẩu mới và xác nhận
+  - Kiểm tra session hợp lệ
+  - Cập nhật mật khẩu mới vào database
+  - Xóa session đã sử dụng
+- **Validation**: 
+  - Password: required, min:8, confirmed
+  - Session phải hợp lệ
 
 #### Xác thực email
 - **Route**: `GET /verify-email/{id}/{hash}`
