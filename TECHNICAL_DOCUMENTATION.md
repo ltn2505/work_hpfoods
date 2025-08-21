@@ -9,9 +9,11 @@
 6. [Chức năng theo từng role](#chức-năng-theo-từng-role)
 7. [API và Routes](#api-và-routes)
 8. [Tính năng lặp lại công việc](#tính-năng-lặp-lại-công-việc)
-9. [Validation và bảo mật](#validation-và-bảo-mật)
-10. [Hướng dẫn sử dụng](#hướng-dẫn-sử-dụng)
-11. [Troubleshooting](#troubleshooting)
+9. [Tính năng hoàn tác hoàn thành](#tính-năng-hoàn-tác-hoàn-thành)
+10. [Validation và bảo mật](#validation-và-bảo-mật)
+11. [Việt hóa giao diện](#việt-hóa-giao-diện)
+12. [Hướng dẫn sử dụng](#hướng-dẫn-sử-dụng)
+13. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -27,6 +29,8 @@ Hệ thống Quản lý Công việc HP Foods là một ứng dụng web đượ
 - **Authentication**: Laravel Breeze
 - **File Upload**: Laravel Storage
 - **Validation**: Client-side + Server-side
+- **Scheduling**: Laravel Console Commands + Cron Jobs
+- **Localization**: Vietnamese language support
 
 ### Kiến trúc hệ thống
 - **MVC Pattern**: Model-View-Controller
@@ -489,30 +493,34 @@ Route::prefix('api')->group(function () {
 
 ---
 
-## 🔄 TÍNH NĂNG LẶP LẠI CÔNG VIỆC
+## 🔄 TÍNH NĂNG LẶP LẠI CÔNG VIỆC (ĐÃ ĐƠN GIẢN HÓA)
 
 ### Tổng quan
-Tính năng lặp lại công việc cho phép Admin và Manager tạo các công việc tự động lặp lại theo lịch trình định sẵn. Hệ thống sẽ tự động reset công việc mỗi 7h sáng theo cài đặt, giúp quản lý các công việc định kỳ một cách hiệu quả.
+Tính năng lặp lại công việc đã được đơn giản hóa, sử dụng checkbox đơn giản thay vì dropdown phức tạp. Hệ thống tự động tính toán khoảng thời gian lặp lại dựa trên duration của task gốc và tự động cập nhật deadline mỗi 7h sáng.
 
-### Cấu trúc database
+### Cấu trúc database (Đã đơn giản hóa)
 ```sql
 -- Các trường mới được thêm vào bảng tasks
-recurring_type ENUM('none', 'daily', '3_days', 'weekly', 'custom') DEFAULT 'none'
+is_recurring BOOLEAN DEFAULT FALSE
 recurring_start_date DATE NULL
-recurring_end_date DATE NULL  
 recurring_days INTEGER NULL
 last_reset_date DATE NULL
-recurring_status ENUM('active', 'paused', 'completed') DEFAULT 'active'
 rework_hours INTEGER NULL
 rework_deadline TIMESTAMP NULL
+completed_at TIMESTAMP NULL
 ```
 
-### Các loại lặp lại
-1. **Không lặp lại (none)**: Công việc chỉ thực hiện một lần
-2. **Mỗi ngày (daily)**: Reset mỗi 24 giờ
-3. **Mỗi 3 ngày (3_days)**: Reset mỗi 3 ngày
-4. **Mỗi tuần (weekly)**: Reset mỗi 7 ngày
-5. **Tùy chỉnh (custom)**: Cho phép chọn ngày bắt đầu và kết thúc
+### Cơ chế hoạt động mới
+1. **Checkbox đơn giản**: Chỉ cần tick vào "Lặp lại công việc"
+2. **Tự động tính toán**: Hệ thống tự tính `recurring_days` từ deadline gốc
+3. **Ví dụ**: Task tạo ngày 19/5, deadline 22/5 (4 ngày) → tự động lặp lại mỗi 4 ngày
+4. **Ngày bắt đầu**: Có thể tùy chỉnh hoặc mặc định là ngày hiện tại
+
+### Xử lý tự động
+- **Command**: `php artisan tasks:reset-recurring`
+- **Schedule**: Chạy mỗi 7h sáng hàng ngày
+- **Logic**: Kiểm tra `is_recurring = true` và `needsNewDeadline()`
+- **Cập nhật**: Deadline mới = `recurring_start_date + recurring_days`
 
 ### Xử lý tự động
 - **Command**: `php artisan tasks:reset-recurring`
@@ -535,8 +543,6 @@ rework_deadline TIMESTAMP NULL
 ```php
 // Set thời gian làm lại
 POST /tasks/{task}/set-rework-time
-// Toggle trạng thái lặp lại
-POST /tasks/{task}/toggle-recurring
 // Hoàn tác công việc đã hoàn thành
 POST /tasks/{task}/undo-completion
 ```
@@ -545,6 +551,109 @@ POST /tasks/{task}/undo-completion
 - **Admin**: Quản lý tất cả công việc lặp lại
 - **Manager**: Chỉ quản lý trong phòng ban
 - **Employee**: Chỉ xem và thực hiện
+
+---
+
+## ⏪ TÍNH NĂNG HOÀN TÁC HOÀN THÀNH
+
+### Tổng quan
+Tính năng hoàn tác cho phép người được giao việc (assignee) hoàn tác trạng thái "hoàn thành" về "đang làm" trong vòng 3 tiếng sau khi hoàn thành.
+
+### Điều kiện sử dụng
+- **Trạng thái**: Task phải ở trạng thái "completed"
+- **Thời gian**: Chỉ trong vòng 3 tiếng sau khi hoàn thành
+- **Quyền**: Chỉ người được giao việc mới có thể hoàn tác
+- **Tracking**: Sử dụng field `completed_at` để theo dõi thời gian
+
+### Cơ chế hoạt động
+```php
+public function canUndo(): bool
+{
+    if ($this->status !== 'completed' || !$this->completed_at) {
+        return false;
+    }
+    
+    $hoursSinceCompleted = Carbon::now()->diffInHours($this->completed_at);
+    return $hoursSinceCompleted <= 3;
+}
+
+public function undoCompletion(): void
+{
+    $this->update([
+        'status' => 'in_progress',
+        'completed_at' => null
+    ]);
+    
+    // Tạo activity log
+    $this->activities()->create([
+        'user_id' => $this->assignee_id,
+        'action' => 'undo_completion',
+        'meta' => 'Hoàn tác trạng thái hoàn thành về "Đang làm"'
+    ]);
+}
+```
+
+### Giao diện người dùng
+- **Nút hoàn tác**: Chỉ hiển thị khi `canUndo() = true`
+- **Thông báo**: Hiển thị thông báo khi không thể hoàn tác
+- **Xác nhận**: Popup confirm trước khi hoàn tác
+- **Styling**: Nút với hiệu ứng gradient và hover effects
+
+### Activity Logging
+- **Action**: `undo_completion`
+- **Meta**: Mô tả hành động hoàn tác
+- **User**: Người thực hiện hoàn tác
+- **Timestamp**: Thời điểm hoàn tác
+
+---
+
+## 🇻🇳 VIỆT HÓA GIAO DIỆN
+
+### Tổng quan
+Toàn bộ giao diện hệ thống đã được việt hóa để phù hợp với đối tượng người dùng là nông dân, giúp họ dễ dàng sử dụng hệ thống mà không cần kiến thức tiếng Anh.
+
+### Các thành phần đã việt hóa
+
+#### 1. **Form Labels và Comments**
+- **Trước**: `Title`, `Description`, `File Upload`, `Assignee`
+- **Sau**: `Tiêu đề`, `Mô tả`, `Tệp đính kèm`, `Người phụ trách`
+
+#### 2. **Button Text**
+- **Trước**: `Submit`, `Update`, `Delete`, `View History`
+- **Sau**: `Gửi`, `Cập nhật`, `Xóa`, `Xem lịch sử`
+
+#### 3. **Status Messages**
+- **Trước**: `Task created successfully`, `Validation failed`
+- **Sau**: `Đã tạo công việc thành công`, `Xác thực thất bại`
+
+#### 4. **Error Messages**
+- **Trước**: `Field is required`, `Invalid format`
+- **Sau**: `Trường này là bắt buộc`, `Định dạng không hợp lệ`
+
+#### 5. **Navigation và Menu**
+- **Trước**: `Dashboard`, `Tasks`, `Users`, `Departments`
+- **Sau**: `Bảng điều khiển`, `Công việc`, `Người dùng`, `Phòng ban`
+
+### Lợi ích của việt hóa
+- **Dễ sử dụng**: Người nông dân không cần biết tiếng Anh
+- **Tăng hiệu quả**: Giảm thời gian học cách sử dụng
+- **Giảm lỗi**: Hiểu rõ chức năng của từng nút/trường
+- **Tăng sự tin tưởng**: Giao diện quen thuộc với người Việt
+
+### Cách thực hiện việt hóa
+```php
+// Sử dụng Blade directives
+@if($task->status === 'completed')
+    <span class="badge bg-success">Chờ duyệt</span>
+@elseif($task->status === 'in_progress')
+    <span class="badge bg-primary">Đang làm</span>
+@endif
+
+// Sử dụng helper functions
+{{ __('messages.task_created') }}
+// Trong resources/lang/vi/messages.php
+'task_created' => 'Đã tạo công việc thành công'
+```
 
 ---
 
@@ -560,8 +669,15 @@ POST /tasks/{task}/undo-completion
   - Finish note
   - Comment content
 
+#### Deadline Validation
+- **Ngăn chặn**: Không cho phép set deadline trong quá khứ
+- **Client-side**: HTML `min` attribute với `now()`
+- **Server-side**: Laravel rule `after:today`
+- **Real-time**: JavaScript validation khi user nhập
+
 #### JavaScript Validation
 ```javascript
+// Word length validation
 function checkWordLength(text) {
     const words = text.trim().split(/\s+/);
     return words.every(word => word.length <= 45);
@@ -578,9 +694,28 @@ function validateTextarea(textarea, errorElement, submitBtn) {
     } else {
         errorElement.style.display = 'none';
         submitBtn.disabled = false;
-        submitBtn.innerHTML = 'Submit';
+        submitBtn.innerHTML = 'Gửi';
     }
 }
+
+// Deadline validation
+function validateDeadline(deadlineInput) {
+    const selectedDate = new Date(deadlineInput.value);
+    const now = new Date();
+    
+    if (selectedDate <= now) {
+        deadlineInput.setCustomValidity('Deadline phải là thời gian trong tương lai');
+        return false;
+    } else {
+        deadlineInput.setCustomValidity('');
+        return true;
+    }
+}
+
+// Real-time deadline validation
+document.querySelector('input[name="deadline"]').addEventListener('change', function() {
+    validateDeadline(this);
+});
 ```
 
 ### Server-side Validation
@@ -625,6 +760,40 @@ $request->validate([
 - Giới hạn kích thước file: 50MB
 - Kiểm tra MIME type
 - Lưu trữ an toàn trong storage
+
+### UI/UX Improvements
+
+#### Button Effects và Animations
+- **Gradient backgrounds**: Sử dụng CSS gradients cho buttons
+- **Hover effects**: Transform, shadow, opacity changes
+- **Smooth transitions**: CSS transitions cho tất cả interactive elements
+- **Responsive design**: Mobile-first approach với Bootstrap 5
+
+#### Nút Hoàn tác Styling
+```css
+.btn-undo {
+    background: linear-gradient(135deg, #f59e0b 0%, #f97316 100%);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 12px 20px;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);
+}
+
+.btn-undo:hover {
+    background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
+    transform: translateY(-3px);
+    box-shadow: 0 6px 20px rgba(245, 158, 11, 0.4);
+}
+```
+
+#### Form Styling
+- **Focus effects**: Border color changes và box-shadow
+- **Error states**: Red borders và error messages
+- **Success states**: Green borders và success indicators
+- **Loading states**: Disabled buttons và spinners
 
 ---
 
