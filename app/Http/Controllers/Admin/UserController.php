@@ -10,24 +10,89 @@ use Illuminate\Validation\Rule;
 class UserController extends Controller
 
 {
-    public function index()
+    public function index(Request $request)
     {
         $user = auth()->user();
         
-        if ($user->isAdmin()) {
-            // Admin có thể xem tất cả users
-            $users = User::with('department')->latest()->paginate(15);
-        } elseif ($user->isManager()) {
+        // Lấy các tham số tìm kiếm và sắp xếp
+        $search = $request->get('search');
+        $department = $request->get('department');
+        $role = $request->get('role');
+        $sortBy = $request->get('sort_by', 'created_at');
+        $sortOrder = $request->get('sort_order', 'desc');
+        
+        // Xây dựng query cơ bản
+        $query = User::with('department');
+        
+        if ($user->isManager()) {
             // Manager chỉ có thể xem users cùng phòng ban
-            $users = User::with('department')
-                        ->where('department_id', $user->department_id)
-                        ->latest()
-                        ->paginate(15);
-        } else {
-            abort(403, 'Bạn không có quyền xem danh sách người dùng.');
+            $query->where('department_id', $user->department_id);
         }
         
-        return view('admin.users.index', compact('users'));
+        // Áp dụng tìm kiếm
+        if ($search) {
+            $query->where(function($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                  ->orWhere('email', 'like', "%{$search}%")
+                  ->orWhere('phone', 'like', "%{$search}%");
+            });
+        }
+        
+        // Lọc theo phòng ban
+        if ($department && $user->isAdmin()) {
+            $query->where('department_id', $department);
+        }
+        
+        // Lọc theo vai trò
+        if ($role) {
+            $query->where('role', $role);
+        }
+        
+        // Sắp xếp
+        $allowedSortFields = ['name', 'email', 'role', 'created_at', 'department_id'];
+        if (in_array($sortBy, $allowedSortFields)) {
+            if ($sortBy === 'department_id') {
+                $query->join('departments', 'users.department_id', '=', 'departments.id')
+                      ->orderBy('departments.name', $sortOrder);
+            } else {
+                $query->orderBy($sortBy, $sortOrder);
+            }
+        } else {
+            $query->latest();
+        }
+        
+        // Phân trang với số lượng tùy chỉnh
+        $perPage = $request->get('per_page', 15);
+        $allowedPerPage = [10, 15, 25, 50];
+        if (!in_array($perPage, $allowedPerPage)) {
+            $perPage = 15;
+        }
+        
+        $users = $query->paginate($perPage)->withQueryString();
+        
+        // Lấy danh sách phòng ban cho filter (chỉ admin)
+        $departments = null;
+        if ($user->isAdmin()) {
+            $departments = Department::orderBy('name')->get();
+        }
+        
+        // Lấy thống kê
+        $stats = [
+            'total' => User::count(),
+            'admin' => User::where('role', 'admin')->count(),
+            'manager' => User::where('role', 'manager')->count(),
+            'employee' => User::where('role', 'employee')->count(),
+        ];
+        
+        if ($user->isManager()) {
+            $stats['total'] = User::where('department_id', $user->department_id)->count();
+            $stats['manager'] = User::where('role', 'manager')
+                                   ->where('department_id', $user->department_id)->count();
+            $stats['employee'] = User::where('role', 'employee')
+                                    ->where('department_id', $user->department_id)->count();
+        }
+        
+        return view('admin.users.index', compact('users', 'departments', 'stats', 'search', 'department', 'role', 'sortBy', 'sortOrder', 'perPage'));
     }
 
     public function create()

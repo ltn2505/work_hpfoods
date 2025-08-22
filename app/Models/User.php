@@ -17,6 +17,10 @@ class User extends Authenticatable
     public function department(){ return $this->belongsTo(Department::class); }
     public function assignedTasks(){ return $this->hasMany(Task::class, 'assignee_id'); }
     public function createdTasks(){ return $this->hasMany(Task::class, 'creator_id'); }
+    
+    // Thêm relationship với task_assignees để tránh lỗi SQL ambiguous
+    public function taskAssignments(){ return $this->hasMany(TaskAssignee::class); }
+    public function multiAssignedTasks(){ return $this->belongsToMany(Task::class, 'task_assignees'); }
 
     public function isAdmin(){ return $this->role === 'admin'; }
     public function isManager(){ return $this->role === 'manager'; }

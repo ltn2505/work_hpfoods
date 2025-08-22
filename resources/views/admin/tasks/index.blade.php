@@ -15,42 +15,50 @@
             <button class="btn btn-primary">Lọc</button>
         </form>
     </div>
+
     <div class="card-body p-0">
-        <table class="table table-striped mb-0">
-            <thead>
-                <tr>
-                    <th>#</th>
-                    <th>Tiêu đề</th>
-                    <th>Người giao</th>
-                    <th>Người nhận</th>
-                    <th>Deadline</th>
-                    <th>Trạng thái</th>
-                    <th>Hành động</th>
-                </tr>
-            </thead>
-            <tbody>
-                @forelse($tasks as $task)
+        @foreach($departments as $department)
+            <h5 class="mt-4">{{ $department->name }}</h5>
+            <table class="table">
+                <thead>
                     <tr>
-                        <td>{{ $loop->iteration }}</td>
-                        <td>{{ $task->title }}</td>
-                        <td>{{ $task->creator->name ?? '-' }}</td>
-                        <td>{{ $task->assignee->name ?? '-' }}</td>
-                        <td>{{ $task->deadline ? $task->deadline->format('d/m/Y') : '-' }}</td>
-                        <td>{{ __("statuses.$task->status") ?? strtoupper($task->status) }}</td>
-                        <td>
-                            <a href="{{ route('task-detail', $task) }}" class="btn btn-sm btn-info">Xem</a>
-                        </td>
+                        <th>#</th>
+                        <th>Tiêu đề</th>
+                        <th>Người giao</th>
+                        <th>Người nhận</th>
+                        <th>Deadline</th>
+                        <th>Trạng thái</th>
+                        <th>Hành động</th>
                     </tr>
-                @empty
-                    <tr>
-                        <td colspan="7" class="text-center">Chưa có công việc nào.</td>
-                    </tr>
-                @endforelse
-            </tbody>
-        </table>
-    </div>
-    <div class="card-footer">
-        {{ $tasks->withQueryString()->links() }}
+                </thead>
+                <tbody>
+                    @forelse($department->tasksForView as $task)
+                        <tr>
+                            <td>
+                                {{ ($department->tasksForView->currentPage() - 1) * $department->tasksForView->perPage() + $loop->iteration }}
+                            </td>
+                            <td>{{ $task->title }}</td>
+                            <td>{{ $task->creator->name ?? '-' }}</td>
+                            <td>{{ $task->assignedUsers->pluck('name')->join(', ') }}</td>
+                            <td>{{ $task->deadline ? $task->deadline->format('d/m/Y') : '-' }}</td>
+                            <td>{{ __("statuses.$task->status") ?? strtoupper($task->status) }}</td>
+                            <td>
+                                <a href="{{ route('task-detail', $task) }}" class="btn btn-sm btn-info">Xem</a>
+                            </td>
+                        </tr>
+                    @empty
+                        <tr>
+                            <td colspan="7" class="text-center">Chưa có công việc nào.</td>
+                        </tr>
+                    @endforelse
+                </tbody>
+            </table>
+
+            {{-- Phân trang riêng --}}
+            {{ $department->tasksForView->withQueryString()->links() }}
+
+            @if(!$loop->last) <hr> @endif
+        @endforeach
     </div>
 </div>
 @endsection

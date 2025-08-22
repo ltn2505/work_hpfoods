@@ -49,6 +49,12 @@ class Task extends Model
     public function activities(){ 
         return $this->hasMany(TaskActivity::class)->orderBy('created_at', 'desc'); 
     }
+    
+    // Quan hệ many-to-many với Department
+    public function departments()
+    {
+        return $this->belongsToMany(Department::class, 'department_task');
+    }
 
     /**
      * Kiểm tra xem công việc có cần cập nhật deadline không

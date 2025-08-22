@@ -360,7 +360,6 @@
           <i class="bi bi-chevron-left"></i>
         </div>
         <div class="list-group rounded-0">
-          @auth
           @if(Auth::user()->isAdmin() || Auth::user()->isManager())
             <a href="{{ route('reports.index') }}"
                class="list-group-item {{ request()->routeIs('reports.index')?'active':'' }}"
@@ -368,7 +367,6 @@
               <i class="bi bi-bar-chart me-2"></i> <span>Báo cáo</span>
             </a>
           @endif
-          @endauth
 
           <a href="{{ route('dashboard') }}"
              class="list-group-item {{ request()->routeIs('dashboard')?'active':'' }}"
@@ -376,7 +374,6 @@
             <i class="bi bi-list-task me-2"></i> <span>Quản lý chung</span>
           </a>
 
-          @auth
           @if(Auth::user()->isAdmin() || Auth::user()->isManager())
             <a href="{{ route('create-task') }}"
                class="list-group-item {{ request()->routeIs('create-task')?'active':'' }}"
@@ -385,6 +382,7 @@
             </a>
           @endif
 
+          @auth
           @if(Auth::user()->isAdmin())
             <a href="{{ route('departments.index') }}"
                class="list-group-item {{ request()->routeIs('departments.*')?'active':'' }}"
@@ -427,7 +425,6 @@
   <nav class="bottom-nav">
     <div class="container-fluid">
       <div class="row g-0">
-        @auth
         @if(Auth::user()->isAdmin() || Auth::user()->isManager())
           <div class="col nav-item">
             <a href="{{ route('reports.index') }}" 
@@ -437,7 +434,6 @@
             </a>
           </div>
         @endif
-        @endauth
 
         <div class="col nav-item">
           <a href="{{ route('dashboard') }}" 
@@ -447,7 +443,6 @@
           </a>
         </div>
         
-        @auth
         @if(Auth::user()->isAdmin() || Auth::user()->isManager())
           <div class="col nav-item">
             <a href="{{ route('create-task') }}" 
@@ -458,6 +453,7 @@
           </div>
         @endif
 
+        @auth
         @if(Auth::user()->isAdmin())
           <div class="col nav-item">
             <a href="{{ route('departments.index') }}" 

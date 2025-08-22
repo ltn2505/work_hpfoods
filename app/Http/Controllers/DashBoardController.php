@@ -14,24 +14,25 @@ class DashboardController extends Controller
         
         if ($user->isAdmin()) {
             // Admin thấy tasks theo từng phòng ban
-            $departments = \App\Models\Department::with(['users', 'tasks.assignee', 'tasks.creator'])->get();
+            $departments = \App\Models\Department::all(); // Lấy tất cả phòng ban một cách đơn giản
+            
+            // Debug: Log để kiểm tra
+            \Log::info('DashboardController - Total departments found: ' . $departments->count());
+            foreach ($departments as $dept) {
+                \Log::info("DashboardController - Department: {$dept->id} - {$dept->name}");
+            }
             
             $departmentTasks = [];
             foreach ($departments as $department) {
-                $query = Task::with(['assignedUsers' => function($q) use ($department) {
-                                    $q->where('department_id', $department->id);
-                                }, 'creator'])
+                // Lấy task thực sự thuộc về phòng ban này
+                $query = Task::with(['assignedUsers', 'creator'])
+                            ->where('is_multi_department', false) // Chỉ hiển thị task đơn phòng ban
                             ->where(function($q) use ($department) {
-                                // Chỉ hiển thị task ở phòng ban của creator hoặc có assignees thuộc phòng ban này
-                                $q->whereHas('creator', function($subQ) use ($department) {
-                                    $subQ->where('department_id', $department->id);
-                                })
-                                ->orWhereHas('assignedUsers', function($subQ) use ($department) {
+                                // Task có assignees thuộc phòng ban này
+                                $q->whereHas('assignedUsers', function($subQ) use ($department) {
                                     $subQ->where('department_id', $department->id);
                                 });
-                            })
-                            ->where('is_multi_department', false) // Chỉ hiển thị task đơn phòng ban
-                            ->distinct(); // Tránh trùng lặp task
+                            });
                 
                 // Filter theo trạng thái (hỗ trợ nhiều trạng thái)
                 if ($req->has('statuses') && is_array($req->statuses) && count($req->statuses) > 0) {
@@ -64,7 +65,18 @@ class DashboardController extends Controller
                     $query->latest(); // Mặc định sắp xếp mới nhất
                 }
                 
-                $departmentTasks[$department->id] = $query->get();
+                $tasks = $query->get();
+                $departmentTasks[$department->id] = $tasks;
+                
+                // Debug: Log số lượng task cho mỗi phòng ban
+                \Log::info("DashboardController - Department {$department->name}: {$tasks->count()} tasks");
+            }
+            
+            // Đảm bảo tất cả phòng ban đều có trong $departmentTasks, kể cả không có task
+            foreach ($departments as $department) {
+                if (!isset($departmentTasks[$department->id])) {
+                    $departmentTasks[$department->id] = collect(); // Empty collection cho phòng ban không có task
+                }
             }
             
             $stats = [
@@ -84,7 +96,31 @@ class DashboardController extends Controller
             return view('welcome', compact('departments', 'departmentTasks', 'stats', 'multiDepartmentTasks'));
             
         } elseif ($user->isManager()) {
-            // Manager chỉ thấy tasks của phòng ban mình
+            // Manager: Lấy multi-department tasks có phòng ban tham gia
+            $managerMultiDepartmentTasks = Task::with(['assignedUsers', 'creator'])
+                ->where('is_multi_department', true)
+                ->whereHas('assignedUsers', function($q) use ($user) {
+                    $q->where('department_id', $user->department_id);
+                })
+                ->latest()
+                ->get();
+            
+            // Manager: Lấy tasks thuộc phòng ban (không phải multi-department)
+            $managerDepartment = $user->department;
+            $managerDepartmentTasks = Task::with(['assignedUsers','creator'])
+                ->where('is_multi_department', false)
+                ->where(function($q) use ($user) {
+                    $q->whereHas('assignedUsers', function($subQ) use ($user) {
+                        $subQ->where('department_id', $user->department_id);
+                    })
+                    ->orWhereHas('creator', function($subQ) use ($user) {
+                        $subQ->where('department_id', $user->department_id);
+                    });
+                })
+                ->latest()
+                ->get();
+            
+            // Query cho bảng Employee-style (fallback)
             $query = Task::with(['assignedUsers','creator'])
                         ->where(function($q) use ($user) {
                             $q->whereHas('assignedUsers', function($subQ) use ($user) {
@@ -146,42 +182,33 @@ class DashboardController extends Controller
 
             $tasks = $query->paginate(10);
             
-            // Lấy multi-department tasks mà manager có thể thấy
-            $multiDepartmentTasks = Task::with(['assignedUsers', 'creator'])
-                ->where('is_multi_department', true)
-                ->whereHas('assignedUsers', function($q) use ($user) {
-                    $q->where('department_id', $user->department_id);
-                })
-                ->latest()
-                ->get();
-            
-            return view('welcome', compact('tasks','stats', 'multiDepartmentTasks'));
+            return view('welcome', compact('tasks','stats', 'managerMultiDepartmentTasks', 'managerDepartment', 'managerDepartmentTasks'));
             
         } else {
-            // Employee chỉ thấy tasks của mình
+            // Employee: Hiển thị cấu trúc phòng ban giống Admin nhưng chỉ thấy task của mình
             $query = Task::with(['assignedUsers','creator'])
                         ->where(function($q) use ($user) {
                             $q->whereHas('assignedUsers', function($subQ) use ($user) {
-                                $subQ->where('id', $user->id);
+                                $subQ->where('users.id', $user->id);
                             })
                             ->orWhere('creator_id', $user->id);
                         });
             
             $stats = [
                 'doing'   => Task::whereHas('assignedUsers', function($q) use ($user) {
-                                $q->where('id', $user->id);
+                                $q->where('users.id', $user->id);
                             })->where('status','in_progress')->count(),
                 'completed' => Task::whereHas('assignedUsers', function($q) use ($user) {
-                                $q->where('id', $user->id);
+                                $q->where('users.id', $user->id);
                             })->where('status','completed')->count(),
                 'rejected' => Task::whereHas('assignedUsers', function($q) use ($user) {
-                                $q->where('id', $user->id);
+                                $q->where('users.id', $user->id);
                             })->where('status','rejected')->count(),
                 'overdue' => Task::whereHas('assignedUsers', function($q) use ($user) {
-                                $q->where('id', $user->id);
+                                $q->where('users.id', $user->id);
                             })->where('status','overdue')->count(),
                 'finished' => Task::whereHas('assignedUsers', function($q) use ($user) {
-                                $q->where('id', $user->id);
+                                $q->where('users.id', $user->id);
                             })->where('status','finished')->count(),
             ];
             
@@ -221,3 +248,4 @@ class DashboardController extends Controller
         }
     }
 }
+

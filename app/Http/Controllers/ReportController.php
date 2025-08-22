@@ -20,7 +20,7 @@ class ReportController extends Controller
         if ($user->isManager()) {
             // Manager chỉ thấy tasks của phòng ban mình
             $baseQuery->where(function($q) use ($user) {
-                $q->whereHas('assignee', function($subQ) use ($user) {
+                $q->whereHas('assignedUsers', function($subQ) use ($user) {
                     $subQ->where('department_id', $user->department_id);
                 })
                 ->orWhereHas('creator', function($subQ) use ($user) {
@@ -30,8 +30,10 @@ class ReportController extends Controller
         } elseif (!$user->isAdmin()) {
             // Employee chỉ thấy tasks của mình
             $baseQuery->where(function($q) use ($user) {
-                $q->where('assignee_id', $user->id)
-                  ->orWhere('creator_id', $user->id);
+                $q->whereHas('assignedUsers', function($subQ) use ($user) {
+                    $subQ->where('users.id', $user->id);
+                })
+                ->orWhere('creator_id', $user->id);
             });
         }
         // Admin thấy tất cả tasks
@@ -96,7 +98,7 @@ class ReportController extends Controller
         return $query->withCount(['tasks' => function($q) use ($user) {
             if ($user->isManager()) {
                 $q->where(function($subQ) use ($user) {
-                    $subQ->whereHas('assignee', function($subSubQ) use ($user) {
+                    $subQ->whereHas('assignedUsers', function($subSubQ) use ($user) {
                         $subSubQ->where('department_id', $user->department_id);
                     })
                     ->orWhereHas('creator', function($subSubQ) use ($user) {
@@ -105,8 +107,10 @@ class ReportController extends Controller
                 });
             } elseif (!$user->isAdmin()) {
                 $q->where(function($subQ) use ($user) {
-                    $subQ->where('assignee_id', $user->id)
-                         ->orWhere('creator_id', $user->id);
+                    $subQ->whereHas('assignedUsers', function($subSubQ) use ($user) {
+                        $subSubQ->where('users.id', $user->id);
+                    })
+                    ->orWhere('creator_id', $user->id);
                 });
             }
         }])->pluck('tasks_count', 'name');
@@ -120,10 +124,10 @@ class ReportController extends Controller
             $query->where('department_id', $user->department_id);
         }
         
-        $employees = $query->withCount(['assignedTasks as finished_tasks' => function($q) {
+        $employees = $query->withCount(['multiAssignedTasks as finished_tasks' => function($q) {
             $q->where('status', 'finished');
         }])
-        ->withCount(['assignedTasks as total_tasks' => function($q) {
+        ->withCount(['multiAssignedTasks as total_tasks' => function($q) {
             $q->whereIn('status', ['in_progress', 'completed', 'finished']);
         }])
         ->where('role', 'employee')
@@ -162,7 +166,7 @@ class ReportController extends Controller
         return $departments->map(function($dept) use ($user) {
             // Simple query: get all tasks for this department
             $deptTasks = Task::where(function($q) use ($dept) {
-                $q->whereHas('assignee', function($subQ) use ($dept) {
+                $q->whereHas('assignedUsers', function($subQ) use ($dept) {
                     $subQ->where('department_id', $dept->id);
                 })
                 ->orWhereHas('creator', function($subQ) use ($dept) {

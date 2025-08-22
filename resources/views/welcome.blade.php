@@ -1,5 +1,5 @@
 @extends('layouts.master')
-@section('title','Danh sách công việc')
+@section('title','Quản lý chung')
 
 @push('styles')
 <style>
@@ -66,11 +66,42 @@
   transform: scale(0.95);
 }
 
-/* CSS cho giao diện Manager/Employee */
+/* CSS cho giao diện Manager/Employee - Fixed hover conflicts */
+.table-hover tbody tr {
+    transition: all 0.15s ease;
+    position: relative;
+    border-radius: 8px;
+    margin: 2px 0;
+}
+
 .table-hover tbody tr:hover {
     background-color: #f8f9fa;
-    transform: scale(1.01);
-    transition: all 0.2s ease;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    border-radius: 8px;
+    z-index: 10;
+}
+
+/* Prevent hover conflicts by adding visual separation */
+.table tbody tr {
+    border-bottom: 2px solid transparent;
+    transition: all 0.15s ease;
+    position: relative;
+}
+
+.table tbody tr:hover {
+    border-bottom: 2px solid transparent;
+    isolation: isolate;
+}
+
+/* Add proper spacing between rows */
+.table tbody tr td {
+    padding: 12px 8px;
+    border-bottom: none;
+}
+
+.table tbody tr + tr td {
+    border-top: 1px solid #f1f3f5;
 }
 
 .badge {
@@ -79,30 +110,82 @@
 }
 
 .btn-group .btn {
-    transition: all 0.3s ease;
+    transition: all 0.2s ease;
 }
 
 .btn-group .btn:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.15);
 }
 
+/* Task card improvements */
 .card {
-    transition: all 0.3s ease;
+    transition: all 0.2s ease;
+    margin-bottom: 8px;
+    border-radius: 12px;
+    overflow: hidden;
 }
 
 .card:hover {
-    box-shadow: 0 8px 25px rgba(0,0,0,0.1) !important;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.1) !important;
+    transform: translateY(-1px);
+}
+
+/* Additional fixes for hover conflicts */
+.table-responsive {
+    border-spacing: 0 4px;
+    border-collapse: separate;
+}
+
+.table tbody tr {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    margin-bottom: 4px;
+}
+
+.table tbody tr:not(:hover) + tr:hover {
+    margin-top: 4px;
+}
+
+/* Precise hover zones */
+.table tbody tr td:first-child {
+    border-radius: 8px 0 0 8px;
+}
+
+.table tbody tr td:last-child {
+    border-radius: 0 8px 8px 0;
 }
 
 .table th {
     font-weight: 600;
     color: #495057;
     border-bottom: 2px solid #dee2e6;
+    background: #f8f9fa;
+    padding: 12px 8px;
 }
 
 .table td {
     vertical-align: middle;
+    border: none;
+}
+
+/* Prevent cascading hover effects */
+.table tbody tr:hover ~ tr {
+    transform: none;
+}
+
+/* Smooth hover with debounce protection */
+.table tbody tr {
+    transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.table tbody tr:hover {
+    transition-delay: 0.05s;
+}
+
+.table tbody tr:not(:hover) {
+    transition-delay: 0s;
 }
 
 /* Responsive cho mobile */
@@ -301,139 +384,172 @@
   @endif
 </div>
 
+{{-- Công việc đa phòng ban --}}
+@if(auth()->user()->isAdmin() || auth()->user()->isManager())
+  <div class="card shadow-sm border-0 mb-4">
+    <div class="card-header text-white d-flex align-items-center justify-content-between" style="background: linear-gradient(135deg, #558EC1 0%, #5DA444 100%);">
+      <h5 class="mb-0 fw-bold text-white">
+        <i class="bi bi-diagram-3 me-2"></i>
+        🌟 Công việc đa phòng ban
+        <span class="badge bg-light text-dark ms-2">
+          @if(auth()->user()->isAdmin())
+            {{ $multiDepartmentTasks->count() ?? 0 }} công việc
+          @else
+            {{ $managerMultiDepartmentTasks->count() ?? 0 }} công việc
+          @endif
+        </span>
+      </h5>
+      <div class="d-flex align-items-center">
+        <span class="badge bg-warning text-dark me-2">
+          <i class="bi bi-star-fill me-1"></i>
+          Đặc biệt
+        </span>
+        <i class="bi bi-grip-vertical me-2 drag-handle" style="cursor: grab; opacity: 0.7;"></i>
+      </div>
+    </div>
+    <div class="card-body p-0">
+      @php
+        $displayTasks = auth()->user()->isAdmin() ? 
+          (isset($multiDepartmentTasks) ? $multiDepartmentTasks : collect()) : 
+          (isset($managerMultiDepartmentTasks) ? $managerMultiDepartmentTasks : collect());
+      @endphp
+      @if($displayTasks->count() > 0)
+        <div class="table-responsive">
+          <table class="table table-hover mb-0">
+            <thead class="table-light">
+              <tr>
+                <th class="px-4 py-3 fw-semibold">Tiêu đề</th>
+                <th class="px-4 py-3 fw-semibold">Người phụ trách</th>
+                <th class="px-4 py-3 fw-semibold">Phòng ban tham gia</th>
+                <th class="px-4 py-3 fw-semibold">Ngày giao</th>
+                <th class="px-4 py-3 fw-semibold">Deadline</th>
+                <th class="px-4 py-3 fw-semibold">Trạng thái</th>
+                <th class="px-4 py-3 fw-semibold text-end">Hành động</th>
+              </tr>
+            </thead>
+            <tbody>
+              @foreach($displayTasks as $task)
+                @php
+                  $st = $task->status;
+                  $badge = [
+                    'in_progress' => 'primary',
+                    'completed'   => 'warning',
+                    'rejected'    => 'danger',
+                    'overdue'     => 'danger',
+                    'finished'    => 'success',
+                  ][$st] ?? 'secondary';
+                @endphp
+                <tr class="border-bottom">
+                  <td class="px-4 py-3">
+                    <div class="fw-medium text-dark">{{ $task->title }}</div>
+                    @if($task->description)
+                      <small class="text-muted">{{ Str::limit($task->description, 50) }}</small>
+                    @endif
+                  </td>
+                  <td class="px-4 py-3">
+                    @if($task->assignedUsers && $task->assignedUsers->count() > 0)
+                      <span class="badge bg-dark bg-opacity-10 text-dark border border-dark cursor-pointer" 
+                            data-bs-toggle="tooltip" 
+                            data-bs-html="true"
+                            title="@foreach($task->assignedUsers as $assignee){{ $assignee->name }}<br>@endforeach"
+                            style="cursor: pointer;">
+                        <i class="fas fa-users me-1"></i>
+                        {{ $task->assignedUsers->count() }} người
+                      </span>
+                    @else
+                      <span class="text-muted">—</span>
+                    @endif
+                  </td>
+                  <td class="px-4 py-3">
+                    @php
+                      // Lấy danh sách phòng ban từ assignedUsers
+                      $departments = $task->assignedUsers->pluck('department')->unique()->filter();
+                    @endphp
+                    @if($departments && $departments->count() > 0)
+                      @foreach($departments->take(2) as $dept)
+                        <span class="badge bg-info bg-opacity-10 text-info border border-info me-1">
+                          <i class="fas fa-building me-1"></i>
+                          {{ $dept->name }}
+                        </span>
+                      @endforeach
+                      @if($departments->count() > 2)
+                        <span class="text-muted">+{{ $departments->count() - 2 }} khác</span>
+                      @endif
+                    @else
+                      <span class="text-muted">—</span>
+                    @endif
+                  </td>
+                  <td class="px-4 py-3">
+                    <span class="text-muted">{{ $task->created_at?->format('d/m/Y') }}</span>
+                  </td>
+                  <td class="px-4 py-3">
+                    @if($task->deadline)
+                      <span class="badge bg-info bg-opacity-10 text-info border border-info">
+                        <i class="fas fa-calendar me-1"></i>
+                        {{ $task->deadline->format('d/m/Y') }}
+                      </span>
+                    @else
+                      <span class="text-muted">—</span>
+                    @endif
+                  </td>
+                  <td class="px-4 py-3">
+                    <span class="badge rounded-pill px-3 py-2 fw-medium bg-{{ $badge }} bg-opacity-10 text-dark border border-{{ $badge }}">
+                      @if($st == 'in_progress')
+                        <i class="fas fa-play me-1"></i>Đang làm
+                      @elseif($st == 'completed')
+                        <i class="fas fa-hourglass-half me-1"></i>Chờ duyệt
+                      @elseif($st == 'rejected')
+                        <i class="fas fa-times me-1"></i>Từ chối
+                      @elseif($st == 'overdue')
+                        <i class="fas fa-exclamation-triangle me-1"></i>Trễ hạn
+                      @elseif($st == 'finished')
+                        <i class="fas fa-flag-checkered me-1"></i>Kết thúc
+                      @else
+                        {{ strtoupper($st) }}
+                      @endif
+                    </span>
+                  </td>
+                                          <td class="px-4 py-3 text-end">
+                          <a href="{{ route('task-detail',$task) }}" class="btn btn-sm btn-outline-info">👁 Xem</a>
+                          <a href="{{ route('tasks.edit',$task) }}" class="btn btn-sm btn-outline-warning">✏️ Sửa</a>
+                          <form action="{{ route('tasks.destroy',$task) }}" method="POST" class="d-inline" data-confirm="Xoá công việc này?">
+                            @csrf @method('DELETE')
+                            <button class="btn btn-sm btn-outline-danger">✖ Xoá</button>
+                          </form>
+                        </td>
+                </tr>
+              @endforeach
+            </tbody>
+          </table>
+        </div>
+      @else
+        <div class="text-center py-4 text-muted">
+          <p class="mb-0">Chưa có công việc đa phòng ban nào.</p>
+        </div>
+      @endif
+    </div>
+  </div>
+@endif
+
 @if(auth()->user()->isAdmin() && isset($departments))
   {{-- Giao diện Admin: Hiển thị theo từng phòng ban --}}
   
-  {{-- Section Công việc đa phòng ban --}}
-  @if(isset($multiDepartmentTasks) && $multiDepartmentTasks->count() > 0)
-    <div class="row mb-4">
-      <div class="col-12">
-        <div class="card shadow-lg border-0">
-          <div class="card-header text-white d-flex align-items-center justify-content-between py-3" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
-            <h5 class="mb-0 fw-bold">
-              <i class="bi bi-diagram-3 me-2"></i>
-              🌟 Công việc đa phòng ban
-              <span class="badge bg-light text-dark ms-2 fs-6">
-                {{ $multiDepartmentTasks->count() }} công việc
-              </span>
-            </h5>
-            <div class="d-flex align-items-center">
-              <span class="badge bg-warning text-dark me-2">
-                <i class="bi bi-star-fill me-1"></i>Đặc biệt
-              </span>
-            </div>
-          </div>
-          <div class="card-body p-0">
-            <div class="table-responsive">
-              <table class="table table-hover mb-0">
-                <thead class="table-light">
-                  <tr>
-                    <th class="px-4 py-3 fw-semibold">Tiêu đề</th>
-                    <th class="px-4 py-3 fw-semibold">Người phụ trách</th>
-                    <th class="px-4 py-3 fw-semibold">Phòng ban tham gia</th>
-                    <th class="px-4 py-3 fw-semibold">Ngày giao</th>
-                    <th class="px-4 py-3 fw-semibold">Deadline</th>
-                    <th class="px-4 py-3 fw-semibold">Trạng thái</th>
-                    <th class="px-4 py-3 fw-semibold text-end">Hành động</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  @foreach($multiDepartmentTasks as $task)
-                    @php
-                      $st = $task->status;
-                      $badge = [
-                        'in_progress' => 'primary',
-                        'completed'   => 'warning',
-                        'rejected'    => 'danger',
-                        'overdue'     => 'danger',
-                        'finished'    => 'success',
-                      ][$st] ?? 'secondary';
-                      
-                      // Lấy danh sách phòng ban tham gia
-                      $taskDepartments = $task->assignedUsers->pluck('department.name')->unique();
-                    @endphp
-                    <tr class="border-bottom">
-                      <td class="px-4 py-3">
-                        <div class="fw-medium text-dark">{{ $task->title }}</div>
-                        @if($task->description)
-                          <small class="text-muted">{{ Str::limit($task->description, 50) }}</small>
-                        @endif
-                      </td>
-                      <td class="px-4 py-3">
-                        @if($task->assignedUsers && $task->assignedUsers->count() > 0)
-                          @foreach($task->assignedUsers as $user)
-                            <span class="badge bg-primary me-1 mb-1">{{ $user->name }}</span>
-                          @endforeach
-                        @else
-                          <span class="text-muted">—</span>
-                        @endif
-                      </td>
-                      <td class="px-4 py-3">
-                        @foreach($taskDepartments as $deptName)
-                          <span class="badge bg-info bg-opacity-75 text-white me-1 mb-1">{{ $deptName }}</span>
-                        @endforeach
-                      </td>
-                      <td class="px-4 py-3">
-                        <span class="text-muted">{{ $task->created_at?->format('d/m/Y') }}</span>
-                      </td>
-                      <td class="px-4 py-3">
-                        @if($task->deadline)
-                          <span class="badge bg-info bg-opacity-10 text-info border border-info">
-                            <i class="fas fa-calendar me-1"></i>
-                            {{ $task->deadline->format('d/m/Y') }}
-                          </span>
-                        @else
-                          <span class="text-muted">—</span>
-                        @endif
-                      </td>
-                      <td class="px-4 py-3">
-                        <span class="badge rounded-pill px-3 py-2 fw-medium bg-{{ $badge }} bg-opacity-10 text-dark border border-{{ $badge }}">
-                          @if($st == 'in_progress')
-                            <i class="fas fa-play me-1"></i>Đang làm
-                          @elseif($st == 'completed')
-                            <i class="fas fa-hourglass-half me-1"></i>Chờ duyệt
-                          @elseif($st == 'rejected')
-                            <i class="fas fa-times me-1"></i>Từ chối
-                          @elseif($st == 'overdue')
-                            <i class="fas fa-exclamation-triangle me-1"></i>Trễ hạn
-                          @elseif($st == 'finished')
-                            <i class="fas fa-flag-checkered me-1"></i>Kết thúc
-                          @else
-                            {{ strtoupper($st) }}
-                          @endif
-                        </span>
-                      </td>
-                      <td class="px-4 py-3 text-end">
-                        <div class="btn-group" role="group">
-                          <a href="{{ route('task-detail',$task) }}" class="btn btn-sm btn-outline-primary border-0 rounded-start">
-                            <i class="fas fa-eye me-1"></i>Xem
-                          </a>
-                          <a href="{{ route('tasks.edit',$task) }}" class="btn btn-sm btn-outline-warning border-0">
-                            <i class="fas fa-edit me-1"></i>Sửa
-                          </a>
-                          <form action="{{ route('tasks.destroy',$task) }}" method="POST" class="d-inline" data-confirm="Xoá công việc này?">
-                            @csrf @method('DELETE')
-                            <button class="btn btn-sm btn-outline-danger border-0 rounded-end">
-                              <i class="fas fa-trash me-1"></i>Xoá
-                            </button>
-                          </form>
-                        </div>
-                      </td>
-                    </tr>
-                  @endforeach
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
+  <!-- {{-- Debug info --}}
+  @if(config('app.debug'))
+    <div class="col-12 mb-3">
+      <div class="alert alert-info">
+        <strong>Debug:</strong> Tổng số phòng ban: {{ $departments->count() }}
+        <br>
+        @foreach($departments as $dept)
+          - {{ $dept->name }} (ID: {{ $dept->id }}) - Tasks: {{ isset($departmentTasks[$dept->id]) ? $departmentTasks[$dept->id]->count() : 'N/A' }}
+        @endforeach
       </div>
     </div>
-  @endif
+  @endif -->
   
   <div class="row g-4" id="sortable-departments">
-    @if(isset($departments) && $departments->count() > 0)
-      @foreach($departments as $department)
-        <div class="col-12 department-card" data-department-id="{{ $department->id }}">
+    @foreach($departments as $department)
+      <div class="col-12 department-card" data-department-id="{{ $department->id }}">
         <div class="card">
           <div class="card-header text-white d-flex align-items-center justify-content-between" style="background: linear-gradient(135deg, #558EC1 0%, #5DA444 100%);">
             <h5 class="mb-0">
@@ -476,13 +592,25 @@
                       <tr>
                         <td>{{ $task->title }}</td>
                         <td>
-                            @if($task->assignedUsers && $task->assignedUsers->count() > 0)
-                                @foreach($task->assignedUsers as $user)
-                                    <span class="badge bg-primary me-1">{{ $user->name }}</span>
-                                @endforeach
+                          @if($task->assignedUsers && $task->assignedUsers->count() > 0)
+                            @if($task->assignedUsers->count() == 1)
+                              <span class="badge bg-dark bg-opacity-10 text-dark border border-dark">
+                                <i class="fas fa-user me-1"></i>
+                                {{ $task->assignedUsers->first()->name }}
+                              </span>
                             @else
-                                —
+                              <span class="badge bg-dark bg-opacity-10 text-dark border border-dark cursor-pointer" 
+                                    data-bs-toggle="tooltip" 
+                                    data-bs-html="true"
+                                    title="@foreach($task->assignedUsers as $assignee){{ $assignee->name }}<br>@endforeach"
+                                    style="cursor: pointer;">
+                                <i class="fas fa-users me-1"></i>
+                                {{ $task->assignedUsers->count() }} người
+                              </span>
                             @endif
+                          @else
+                            <span class="text-muted">—</span>
+                          @endif
                         </td>
                         <td>{{ $task->created_at?->format('d/m/Y') }}</td>
                         <td>{{ $task->deadline?->format('d/m/Y') ?? '—' }}</td>
@@ -524,134 +652,113 @@
           </div>
         </div>
       </div>
-      @endforeach
-    @endif
+    @endforeach
   </div>
-@else
-  {{-- Giao diện Manager/Employee: Hiển thị dạng bảng đơn giản --}}
-  
-  {{-- Section Công việc đa phòng ban cho Manager/Employee --}}
-  @if(isset($multiDepartmentTasks) && $multiDepartmentTasks->count() > 0)
-    <div class="card shadow-lg border-0 mb-4">
-      <div class="card-header text-white d-flex align-items-center justify-content-between py-3" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
-        <h5 class="mb-0 fw-bold">
-          <i class="bi bi-diagram-3 me-2"></i>
-          🌟 Công việc đa phòng ban
-          <span class="badge bg-light text-dark ms-2 fs-6">
-            {{ $multiDepartmentTasks->count() }} công việc
-          </span>
-        </h5>
-        <div class="d-flex align-items-center">
-          <span class="badge bg-warning text-dark me-2">
-            <i class="bi bi-star-fill me-1"></i>Đặc biệt
-          </span>
+@elseif(auth()->user()->isManager() && isset($managerDepartment))
+  {{-- Giao diện Manager: Hiển thị phòng ban của manager --}}
+  <div class="row g-4">
+    <div class="col-12">
+      <div class="card">
+        <div class="card-header text-white d-flex align-items-center justify-content-between" style="background: linear-gradient(135deg, #558EC1 0%, #5DA444 100%);">
+          <h5 class="mb-0">
+            🏢 {{ $managerDepartment->name }}
+            <span class="badge bg-light text-dark ms-2">
+              {{ $managerDepartmentTasks->count() ?? 0 }} công việc
+            </span>
+          </h5>
         </div>
-      </div>
-      <div class="card-body p-0">
-        <div class="table-responsive">
-          <table class="table table-hover mb-0">
-            <thead class="table-light">
-              <tr>
-                <th class="px-4 py-3 fw-semibold">Tiêu đề</th>
-                <th class="px-4 py-3 fw-semibold">Người phụ trách</th>
-                <th class="px-4 py-3 fw-semibold">Phòng ban tham gia</th>
-                <th class="px-4 py-3 fw-semibold">Ngày giao</th>
-                <th class="px-4 py-3 fw-semibold">Deadline</th>
-                <th class="px-4 py-3 fw-semibold">Trạng thái</th>
-                <th class="px-4 py-3 fw-semibold text-end">Hành động</th>
-              </tr>
-            </thead>
-            <tbody>
-              @foreach($multiDepartmentTasks as $task)
-                @php
-                  $st = $task->status;
-                  $badge = [
-                    'in_progress' => 'primary',
-                    'completed'   => 'warning',
-                    'rejected'    => 'danger',
-                    'overdue'     => 'danger',
-                    'finished'    => 'success',
-                  ][$st] ?? 'secondary';
-                  
-                  // Lấy danh sách phòng ban tham gia
-                  $taskDepartments = $task->assignedUsers->pluck('department.name')->unique();
-                @endphp
-                <tr class="border-bottom">
-                  <td class="px-4 py-3">
-                    <div class="fw-medium text-dark">{{ $task->title }}</div>
-                    @if($task->description)
-                      <small class="text-muted">{{ Str::limit($task->description, 50) }}</small>
-                    @endif
-                  </td>
-                  <td class="px-4 py-3">
-                    @if($task->assignedUsers && $task->assignedUsers->count() > 0)
-                      @foreach($task->assignedUsers as $user)
-                        <span class="badge bg-primary me-1 mb-1">{{ $user->name }}</span>
-                      @endforeach
-                    @else
-                      <span class="text-muted">—</span>
-                    @endif
-                  </td>
-                  <td class="px-4 py-3">
-                    @foreach($taskDepartments as $deptName)
-                      <span class="badge bg-info bg-opacity-75 text-white me-1 mb-1">{{ $deptName }}</span>
-                    @endforeach
-                  </td>
-                  <td class="px-4 py-3">
-                    <span class="text-muted">{{ $task->created_at?->format('d/m/Y') }}</span>
-                  </td>
-                  <td class="px-4 py-3">
-                    @if($task->deadline)
-                      <span class="badge bg-info bg-opacity-10 text-info border border-info">
-                        <i class="fas fa-calendar me-1"></i>
-                        {{ $task->deadline->format('d/m/Y') }}
-                      </span>
-                    @else
-                      <span class="text-muted">—</span>
-                    @endif
-                  </td>
-                  <td class="px-4 py-3">
-                    <span class="badge rounded-pill px-3 py-2 fw-medium bg-{{ $badge }} bg-opacity-10 text-dark border border-{{ $badge }}">
-                      @if($st == 'in_progress')
-                        <i class="fas fa-play me-1"></i>Đang làm
-                      @elseif($st == 'completed')
-                        <i class="fas fa-hourglass-half me-1"></i>Chờ duyệt
-                      @elseif($st == 'rejected')
-                        <i class="fas fa-times me-1"></i>Từ chối
-                      @elseif($st == 'overdue')
-                        <i class="fas fa-exclamation-triangle me-1"></i>Trễ hạn
-                      @elseif($st == 'finished')
-                        <i class="fas fa-flag-checkered me-1"></i>Kết thúc
-                      @else
-                        {{ strtoupper($st) }}
-                      @endif
-                    </span>
-                  </td>
-                  <td class="px-4 py-3 text-end">
-                    <div class="btn-group" role="group">
-                      <a href="{{ route('task-detail',$task) }}" class="btn btn-sm btn-outline-primary border-0 rounded-start">
-                        <i class="fas fa-eye me-1"></i>Xem
-                      </a>
-                      <a href="{{ route('tasks.edit',$task) }}" class="btn btn-sm btn-outline-warning border-0">
-                        <i class="fas fa-edit me-1"></i>Sửa
-                      </a>
-                      <form action="{{ route('tasks.destroy',$task) }}" method="POST" class="d-inline" data-confirm="Xoá công việc này?">
-                        @csrf @method('DELETE')
-                        <button class="btn btn-sm btn-outline-danger border-0 rounded-end">
-                          <i class="fas fa-trash me-1"></i>Xoá
-                        </button>
-                      </form>
-                    </div>
-                  </td>
-                </tr>
-              @endforeach
-            </tbody>
-          </table>
+        <div class="card-body">
+          @if(isset($managerDepartmentTasks) && $managerDepartmentTasks->count() > 0)
+            <div class="table-responsive">
+              <table class="table table-sm align-middle mb-0">
+                <thead>
+                  <tr>
+                    <th>Tiêu đề</th>
+                    <th>Người phụ trách</th>
+                    <th>Ngày giao</th>
+                    <th>Deadline</th>
+                    <th>Trạng thái</th>
+                    <th class="text-end">Hành động</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @foreach($managerDepartmentTasks as $task)
+                    @php
+                      $st = $task->status;
+                      $badge = [
+                        'in_progress' => 'primary',
+                        'completed'   => 'warning',
+                        'rejected'    => 'danger',
+                        'overdue'     => 'danger',
+                        'finished'    => 'success',
+                      ][$st] ?? 'secondary';
+                    @endphp
+                    <tr>
+                      <td>{{ $task->title }}</td>
+                      <td>
+                        @if($task->assignedUsers && $task->assignedUsers->count() > 0)
+                          @if($task->assignedUsers->count() == 1)
+                            <span class="badge bg-dark bg-opacity-10 text-dark border border-dark">
+                              <i class="fas fa-user me-1"></i>
+                              {{ $task->assignedUsers->first()->name }}
+                            </span>
+                          @else
+                            <span class="badge bg-dark bg-opacity-10 text-dark border border-dark cursor-pointer" 
+                                  data-bs-toggle="tooltip" 
+                                  data-bs-html="true"
+                                  title="@foreach($task->assignedUsers as $assignee){{ $assignee->name }}<br>@endforeach"
+                                  style="cursor: pointer;">
+                              <i class="fas fa-users me-1"></i>
+                              {{ $task->assignedUsers->count() }} người
+                            </span>
+                          @endif
+                        @else
+                          <span class="text-muted">—</span>
+                        @endif
+                      </td>
+                      <td>{{ $task->created_at?->format('d/m/Y') }}</td>
+                      <td>{{ $task->deadline?->format('d/m/Y') ?? '—' }}</td>
+                      <td>
+                        <span class="badge rounded-pill px-3 py-2 fw-medium bg-{{ $badge }} bg-opacity-10 text-dark border border-{{ $badge }}">
+                          @if($st == 'in_progress')
+                            <i class="fas fa-play me-1"></i>Đang làm
+                          @elseif($st == 'completed')
+                            <i class="fas fa-hourglass-half me-1"></i>Chờ duyệt
+                          @elseif($st == 'rejected')
+                            <i class="fas fa-times me-1"></i>Từ chối
+                          @elseif($st == 'overdue')
+                            <i class="fas fa-exclamation-triangle me-1"></i>Trễ hạn
+                          @elseif($st == 'finished')
+                            <i class="fas fa-flag-checkered me-1"></i>Kết thúc
+                          @else
+                            {{ strtoupper($st) }}
+                          @endif
+                        </span>
+                      </td>
+                      <td class="text-end">
+                        <a href="{{ route('task-detail',$task) }}" class="btn btn-sm btn-outline-info">👁 Xem</a>
+                        <a href="{{ route('tasks.edit',$task) }}" class="btn btn-sm btn-outline-warning">✏️ Sửa</a>
+                        <form action="{{ route('tasks.destroy',$task) }}" method="POST" class="d-inline" data-confirm="Xoá công việc này?">
+                          @csrf @method('DELETE')
+                          <button class="btn btn-sm btn-outline-danger">✖ Xoá</button>
+                        </form>
+                      </td>
+                    </tr>
+                  @endforeach
+                </tbody>
+              </table>
+            </div>
+          @else
+            <div class="text-center py-4 text-muted">
+              <p class="mb-0">Phòng ban này chưa có công việc nào.</p>
+            </div>
+          @endif
         </div>
       </div>
     </div>
-  @endif
-  
+  </div>
+@else
+  {{-- Giao diện Manager/Employee: Hiển thị dạng bảng đơn giản --}}
   <div class="card shadow-sm border-0">
     <div class="card-header bg-white border-0 py-3">
       <h5 class="mb-0 text-primary">
@@ -694,13 +801,7 @@
                 <td class="px-4 py-3">
                   <span class="badge bg-light text-dark border">
                     <i class="fas fa-user me-1"></i>
-                    @if($task->assignedUsers && $task->assignedUsers->count() > 0)
-                        @foreach($task->assignedUsers as $user)
-                            <span class="badge bg-primary me-1">{{ $user->name }}</span>
-                        @endforeach
-                    @else
-                        —
-                    @endif
+                    {{ $task->assignee?->name ?? '—' }}
                   </span>
                 </td>
                 <td class="px-4 py-3">
@@ -997,8 +1098,91 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Khôi phục thứ tự khi load trang
     restoreDepartmentOrder();
+
+    // Fix hover conflicts for task rows
+    function initializeTaskRowHoverFix() {
+        const tableRows = document.querySelectorAll('.table tbody tr');
+        let activeRow = null;
+        let hoverTimeout = null;
+
+        tableRows.forEach(row => {
+            row.addEventListener('mouseenter', function(e) {
+                // Clear any pending hover timeout
+                if (hoverTimeout) {
+                    clearTimeout(hoverTimeout);
+                }
+
+                // Remove active state from other rows immediately
+                if (activeRow && activeRow !== this) {
+                    activeRow.classList.remove('row-hover-active');
+                }
+
+                // Set this row as active with small delay to prevent conflicts
+                hoverTimeout = setTimeout(() => {
+                    this.classList.add('row-hover-active');
+                    activeRow = this;
+                }, 30);
+            });
+
+            row.addEventListener('mouseleave', function(e) {
+                // Clear timeout
+                if (hoverTimeout) {
+                    clearTimeout(hoverTimeout);
+                    hoverTimeout = null;
+                }
+
+                // Remove active state
+                this.classList.remove('row-hover-active');
+                if (activeRow === this) {
+                    activeRow = null;
+                }
+            });
+        });
+    }
+
+    // Initialize hover fix
+    initializeTaskRowHoverFix();
+    
+    // Initialize tooltips for assignee badges
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl, {
+            placement: 'top',
+            trigger: 'hover click'
+        });
+    });
 });
 </script>
+
+<style>
+/* Enhanced hover styles with JavaScript control */
+.table tbody tr.row-hover-active {
+    background-color: #f8f9fa !important;
+    transform: translateY(-1px) !important;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1) !important;
+    z-index: 10 !important;
+}
+
+.table tbody tr:not(.row-hover-active):hover {
+    /* Disable default hover when JS is controlling */
+    transform: none !important;
+    background-color: transparent !important;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05) !important;
+}
+
+/* Assignee badge styling */
+.badge[data-bs-toggle="tooltip"] {
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+
+.badge[data-bs-toggle="tooltip"]:hover {
+    transform: scale(1.05);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+
+.badge[data-bs-toggle="tooltip"]:active {
+    transform: scale(0.95);
+}
+</style>
 @endpush
-
-

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\User;
 use App\Models\Task;
+use App\Models\Department;
 use Illuminate\Http\Request;
 
 class TaskController extends Controller
@@ -247,10 +248,11 @@ class TaskController extends Controller
             }
         }
         
-        $data =         $request->validate([
+        $data = $request->validate([
             'title'       => 'required|string|max:255',
             'description' => 'nullable|string',
-            'assignee_id' => 'nullable|exists:users,id',
+            'assignee_ids' => 'nullable|array',
+            'assignee_ids.*' => 'exists:users,id',
             'deadline'    => 'nullable|date|after:today',
             'priority'    => 'nullable|in:low,medium,high',
             'status'      => 'required|in:in_progress,completed,rejected,overdue,finished',
@@ -259,6 +261,7 @@ class TaskController extends Controller
             'is_recurring' => 'nullable|boolean',
             'recurring_start_date' => 'nullable|date|after_or_equal:today',
             'recurring_days' => 'nullable|integer|min:1|max:365',
+            'is_multi_department' => 'nullable|boolean',
         ]);
 
         // Kiểm tra lý do từ chối khi trạng thái là rejected
@@ -271,11 +274,13 @@ class TaskController extends Controller
             $data['rejection_reason'] = null;
         }
 
-        // Kiểm tra quyền theo phòng ban cho assignee
-        if ($data['assignee_id'] && $user->isManager()) {
-            $assignee = User::find($data['assignee_id']);
-            if ($assignee->department_id !== $user->department_id) {
-                abort(403, 'Bạn chỉ có thể giao việc cho nhân viên cùng phòng ban.');
+        // Kiểm tra quyền theo phòng ban cho assignees
+        if (!empty($data['assignee_ids']) && $user->isManager()) {
+            $assignees = User::whereIn('id', $data['assignee_ids'])->get();
+            foreach ($assignees as $assignee) {
+                if ($assignee->department_id !== $user->department_id) {
+                    abort(403, 'Bạn chỉ có thể giao việc cho nhân viên cùng phòng ban.');
+                }
             }
         }
 
@@ -317,6 +322,31 @@ class TaskController extends Controller
         } else {
             $data['recurring_days'] = null;
             $data['recurring_start_date'] = null;
+        }
+
+        // Xử lý multiple assignees
+        if (!empty($data['assignee_ids'])) {
+            // Xóa assignees cũ
+            $task->assignees()->delete();
+            
+            // Set assignee chính (người đầu tiên) để tương thích ngược
+            $task->update(['assignee_id' => $data['assignee_ids'][0]]);
+            
+            // Lưu tất cả assignees mới vào bảng pivot
+            foreach ($data['assignee_ids'] as $assigneeId) {
+                $task->assignees()->create(['user_id' => $assigneeId]);
+            }
+            
+            // Tự động xác định nếu là multi-department task
+            $assignees = User::whereIn('id', $data['assignee_ids'])->get();
+            $departments = $assignees->pluck('department_id')->unique();
+            if ($departments->count() > 1) {
+                $data['is_multi_department'] = true;
+            }
+        } else {
+            // Nếu không có assignee nào, xóa tất cả
+            $task->assignees()->delete();
+            $task->update(['assignee_id' => null]);
         }
 
         $task->update($data);
@@ -477,39 +507,51 @@ class TaskController extends Controller
     public function index(Request $request)
     {
         $user = auth()->user();
-        
-        if ($user->isAdmin()) {
-            // Admin thấy tất cả tasks
-            $query = Task::with(['assignedUsers', 'creator']);
-        } elseif ($user->isManager()) {
-            // Manager chỉ thấy tasks của phòng ban mình
-            $query = Task::with(['assignedUsers', 'creator'])
-                        ->where(function($q) use ($user) {
-                            $q->whereHas('assignedUsers', function($subQ) use ($user) {
-                                $subQ->where('department_id', $user->department_id);
-                            })
-                            ->orWhereHas('creator', function($subQ) use ($user) {
-                                $subQ->where('department_id', $user->department_id);
-                            });
-                        });
-        } else {
-            // Employee chỉ thấy tasks của mình
-            $query = Task::with(['assignedUsers', 'creator'])
-                        ->where(function($q) use ($user) {
-                            $q->whereHas('assignedUsers', function($subQ) use ($user) {
-                                $subQ->where('id', $user->id);
-                            })
-                            ->orWhere('creator_id', $user->id);
-                        });
+    
+        $departments = Department::orderBy('name')->get();
+    
+        foreach ($departments as $department) {
+            $tasksQuery = Task::with(['assignedUsers','creator']);
+    
+            // Lọc theo role
+            if ($user->isManager()) {
+                $tasksQuery->where(function($q) use ($department) {
+                    $q->whereHas('assignedUsers', function($subQ) use ($department) {
+                        $subQ->where('department_id', $department->id);
+                    })
+                    ->orWhereHas('creator', function($subQ) use ($department) {
+                        $subQ->where('department_id', $department->id);
+                    });
+                });
+            } elseif ($user->isEmployee()) {
+                $tasksQuery->where(function($q) use ($user) {
+                    $q->whereHas('assignedUsers', function($subQ) use ($user) {
+                        $subQ->where('users.id', $user->id);
+                    })
+                    ->orWhere('creator_id', $user->id);
+                });
+            }
+    
+            // Lọc status
+            if ($request->has('status') && in_array($request->status, ['todo','in_progress','done'])) {
+                $tasksQuery->where('status', $request->status);
+            }
+    
+            // paginate riêng cho từng phòng ban
+            $department->tasksForView = $tasksQuery->where(function($q) use ($department) {
+                $q->whereHas('creator', function($subQ) use ($department) {
+                    $subQ->where('department_id', $department->id);
+                })
+                ->orWhereHas('assignedUsers', function($subQ) use ($department) {
+                    $subQ->where('department_id', $department->id);
+                });
+            })->latest()->paginate(10, ['*'], "page_{$department->id}");
         }
-        
-        if ($request->has('status') && in_array($request->status, ['todo','in_progress','done'])) {
-            $query->where('status', $request->status);
-        }
-        
-        $tasks = $query->latest()->paginate(15);
-        return view('admin.tasks.index', compact('tasks'));
+    
+        return view('admin.tasks.index', compact('departments'));
     }
+    
+    
 
     // (Tuỳ bạn đã có hay chưa)
     public function myTasks(Request $r)
@@ -560,23 +602,23 @@ class TaskController extends Controller
             // Employee chỉ thấy tasks của mình
             $tasks = Task::with('assignedUsers','creator')
                         ->whereHas('assignedUsers', function($q) use ($user) {
-                            $q->where('id', $user->id);
+                            $q->where('users.id', $user->id);
                         })
                         ->latest()
                         ->paginate(10);
             
             $stats = [
                 'doing'   => Task::whereHas('assignedUsers', function($q) use ($user) {
-                                $q->where('id', $user->id);
+                                $q->where('users.id', $user->id);
                             })->where('status','in_progress')->count(),
                 'done'    => Task::whereHas('assignedUsers', function($q) use ($user) {
-                                $q->where('id', $user->id);
+                                $q->where('users.id', $user->id);
                             })->where('status','done')->count(),
                 'todo'    => Task::whereHas('assignedUsers', function($q) use ($user) {
-                                $q->where('id', $user->id);
+                                $q->where('users.id', $user->id);
                             })->where('status','todo')->count(),
                 'overdue' => Task::whereHas('assignedUsers', function($q) use ($user) {
-                                $q->where('id', $user->id);
+                                $q->where('users.id', $user->id);
                             })->where('status','!=','done')
                                  ->whereNotNull('deadline')->where('deadline','<',now())->count(),
             ];

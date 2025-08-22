@@ -98,69 +98,41 @@
 .btn-submit {
     background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
     border: none;
-
-/* Recurring task styling */
-#recurringInfo {
-    border: 1px solid #e9ecef;
-    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-}
-
-#recurringInfo .form-control {
-    border: 2px solid #dee2e6;
-    transition: all 0.3s ease;
-}
-
-#recurringInfo .form-control:focus {
-    border-color: #558EC1;
-    box-shadow: 0 0 0 0.2rem rgba(85, 142, 193, 0.25);
-}
-
-.form-check-input:checked {
-    background-color: #558EC1;
-    border-color: #558EC1;
-}
-    border-radius: 10px;
-    padding: 15px 30px;
-    font-size: 18px;
+    color: white;
+    padding: 12px 30px;
+    border-radius: 8px;
     font-weight: 600;
+    font-size: 16px;
     transition: all 0.3s ease;
-    box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3);
+    cursor: pointer;
 }
 
 .btn-submit:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 8px 25px rgba(40, 167, 69, 0.4);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(40, 167, 69, 0.3);
 }
 
-/* Rejection reason styling */
-#rejection_reason_group {
-    transition: all 0.3s ease;
-    border-left: 4px solid #558EC1;
-    padding-left: 15px;
-    background: rgba(85, 142, 193, 0.05);
-    border-radius: 8px;
-    margin-top: 10px;
+.btn-submit:active {
+    transform: translateY(0);
 }
 
-#rejection_reason_group label {
-    color: #558EC1;
+/* Form groups */
+.form-group {
+    margin-bottom: 1.5rem;
+}
+
+.form-label {
     font-weight: 600;
-}
-
-#rejection_reason_group textarea {
-    border-color: #558EC1;
-}
-
-#rejection_reason_group textarea:focus {
-    border-color: #558EC1;
-    box-shadow: 0 0 0 0.2rem rgba(85, 142, 193, 0.25);
+    color: #495057;
+    margin-bottom: 0.5rem;
+    display: block;
 }
 
 /* Card styling */
 .card {
-    border-radius: 15px;
     border: none;
-    box-shadow: 0 8px 30px rgba(0,0,0,0.1);
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
     overflow: hidden;
 }
 
@@ -168,38 +140,11 @@
     background: linear-gradient(135deg, #558EC1 0%, #5DA444 100%);
     color: white;
     border: none;
-    padding: 20px 25px;
+    padding: 1.5rem;
 }
 
-/* Form groups */
-.form-group {
-    margin-bottom: 25px;
-}
-
-.form-label {
-    font-weight: 600;
-    color: #495057;
-    margin-bottom: 8px;
-    display: block;
-}
-
-/* Responsive */
-@media (max-width: 768px) {
-    .edit-container {
-        padding: 15px;
-    }
-    
-    .priority-buttons {
-        flex-direction: column;
-    }
-    
-    .priority-btn {
-        min-width: auto;
-    }
-    
-    .card-body {
-        padding: 20px;
-    }
+.card-body {
+    padding: 20px;
 }
 
 /* Fix datetime-local input */
@@ -379,7 +324,7 @@ input[type="datetime-local"]::-webkit-outer-spin-button {
                     <label for="title" class="form-label">
                         <i class="bi bi-type me-1"></i>Tiêu đề <span class="text-danger">*</span>
                     </label>
-                    <input type="text" name="title" id="title" class="form-control @error('title') is-invalid @enderror" 
+                    <input type="text" name="title" id="title" class="form-control @error('title') is-invalid @enderror"
                            value="{{ old('title', $task->title) }}" required>
                     @error('title')
                         <div class="invalid-feedback">{{ $message }}</div>
@@ -391,7 +336,7 @@ input[type="datetime-local"]::-webkit-outer-spin-button {
                     <label for="description" class="form-label">
                         <i class="bi bi-text-paragraph me-1"></i>Mô tả
                     </label>
-                    <textarea name="description" id="description" rows="4" class="form-control @error('description') is-invalid @enderror" 
+                    <textarea name="description" id="description" rows="4" class="form-control @error('description') is-invalid @enderror"
                               placeholder="Mô tả chi tiết công việc...">{{ old('description', $task->description) }}</textarea>
                     <div id="descriptionError" class="text-danger mt-1" style="display: none;">
                         <i class="bi bi-exclamation-triangle me-1"></i>
@@ -411,10 +356,10 @@ input[type="datetime-local"]::-webkit-outer-spin-button {
                         <i class="bi bi-cloud-upload display-4 text-muted mb-3"></i>
                         <p class="mb-2 fw-semibold">Kéo thả tệp vào đây hoặc click để chọn</p>
                         <small class="text-muted">
-                            Hỗ trợ: PDF, DOC, DOCX, XLS, XLSX, PPT, PPTX, JPG, PNG, GIF, WEBP, MP4, AVI, MOV, WMV, FLV, WEBM (Tối đa 50MB)
+                            Hỗ trợ: PDF, DOC, DOCX, XLS, XLSX, PPT, PPTX, JPG, PNG, GIF, WEBP, MP4, AVI, MOV, WMV, FLV, WEBM (Tối đa 300MB)
                         </small>
                     </div>
-                    <input type="file" name="files[]" id="files" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.jpeg,.png,.gif,.webp,.mp4,.avi,.mov,.wmv,.flv,.webm" 
+                    <input type="file" name="files[]" id="files" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.jpeg,.png,.gif,.webp,.mp4,.avi,.mov,.wmv,.flv,.webm"
                            class="d-none" onchange="handleFileSelect(this)">
                     @error('files.*')
                         <div class="text-danger small mt-1">{{ $message }}</div>
@@ -426,7 +371,7 @@ input[type="datetime-local"]::-webkit-outer-spin-button {
                     <label class="form-label">
                         <i class="bi bi-people me-1"></i>Người phụ trách
                     </label>
-                    
+
                     {{-- Chọn phòng ban --}}
                     <div class="mb-3">
                         <label class="form-label fw-bold text-dark">
@@ -440,8 +385,8 @@ input[type="datetime-local"]::-webkit-outer-spin-button {
                             <div class="dropdown-menu" id="departmentDropdown">
                                 @foreach($departments as $department)
                                     <div class="dropdown-item">
-                                        <input type="checkbox" id="dept_{{ $department->id }}" 
-                                               value="{{ $department->id }}" 
+                                        <input type="checkbox" id="dept_{{ $department->id }}"
+                                               value="{{ $department->id }}"
                                                class="department-checkbox"
                                                onchange="filterUsersByDepartments()">
                                         <label for="dept_{{ $department->id }}">{{ $department->name }}</label>
@@ -461,8 +406,8 @@ input[type="datetime-local"]::-webkit-outer-spin-button {
                         </label>
                         <div class="user-selection-area">
                             <div class="search-box mb-2">
-                                <input type="text" id="userSearch" class="form-control" 
-                                       placeholder="Tìm kiếm theo tên..." 
+                                <input type="text" id="userSearch" class="form-control"
+                                       placeholder="Tìm kiếm theo tên..."
                                        onkeyup="filterUsers()">
                             </div>
                             <div class="user-list" id="userList">
@@ -509,15 +454,11 @@ input[type="datetime-local"]::-webkit-outer-spin-button {
                     <label for="deadline" class="form-label">
                         <i class="bi bi-calendar-event me-1"></i>Deadline
                     </label>
-                    <input type="datetime-local" name="deadline" id="deadline" 
+                    <input type="datetime-local" name="deadline" id="deadline"
                            class="form-control @error('deadline') is-invalid @enderror"
                            value="{{ old('deadline', $task->deadline ? $task->deadline->format('Y-m-d\TH:i') : '') }}"
                            placeholder="dd/mm/yyyy --:--"
                            min="{{ now()->format('Y-m-d\TH:i') }}">
-                    <!-- <div class="form-text text-info">
-                        <i class="fas fa-info-circle me-1"></i>
-                        Deadline phải là thời gian trong tương lai
-                    </div> -->
                     @error('deadline')
                         <div class="invalid-feedback">{{ $message }}</div>
                     @enderror
@@ -529,19 +470,19 @@ input[type="datetime-local"]::-webkit-outer-spin-button {
                         <i class="bi bi-flag me-1"></i>Độ ưu tiên
                     </label>
                     <div class="priority-buttons">
-                        <input type="radio" name="priority" value="low" id="priority_low" 
+                        <input type="radio" name="priority" value="low" id="priority_low"
                                {{ old('priority', $task->priority) == 'low' ? 'checked' : '' }} class="d-none">
                         <label for="priority_low" class="priority-btn priority-low">
                             <i class="bi bi-flag me-1"></i>Thấp
                         </label>
 
-                        <input type="radio" name="priority" value="medium" id="priority_medium" 
+                        <input type="radio" name="priority" value="medium" id="priority_medium"
                                {{ old('priority', $task->priority) == 'medium' ? 'checked' : '' }} class="d-none">
                         <label for="priority_medium" class="priority-btn priority-medium">
                             <i class="bi bi-flag me-1"></i>Trung bình
                         </label>
 
-                        <input type="radio" name="priority" value="high" id="priority_high" 
+                        <input type="radio" name="priority" value="high" id="priority_high"
                                {{ old('priority', $task->priority) == 'high' ? 'checked' : '' }} class="d-none">
                         <label for="priority_high" class="priority-btn priority-high">
                             <i class="bi bi-flag me-1"></i>Cao
@@ -608,33 +549,23 @@ input[type="datetime-local"]::-webkit-outer-spin-button {
                                 >
                             </div>
                             <div class="col-md-6">
-                                <label class="form-label fw-bold text-dark">Thời gian lặp lại:</label>
-                                <div class="input-group">
-                                    <input
-                                        type="number"
-                                        name="recurring_days"
-                                        id="recurringDays"
-                                        class="form-control border-2"
-                                        value="{{ old('recurring_days', $task->recurring_days) }}"
-                                        min="1"
-                                        max="365"
-                                        readonly
-                                    >
-                                    <span class="input-group-text">ngày</span>
-                                </div>
-                                <small class="text-muted">Tự động tính từ deadline</small>
+                                <label class="form-label fw-bold text-dark">Số ngày lặp lại:</label>
+                                <input
+                                    type="number"
+                                    name="recurring_days"
+                                    id="recurringDays"
+                                    class="form-control border-2"
+                                    value="{{ old('recurring_days', $task->recurring_days ?? 3) }}"
+                                    min="1"
+                                    max="365"
+                                    readonly
+                                >
                             </div>
                         </div>
                         <div class="mt-2">
-                            <small class="text-info">
-                                <i class="fas fa-calendar-alt me-1"></i>
-                                <span id="recurringPreview">
-                                    @if($task->is_recurring && $task->recurring_days)
-                                        Công việc sẽ lặp lại mỗi {{ $task->recurring_days }} ngày
-                                    @else
-                                        Ví dụ: Nếu deadline là 22/8, công việc sẽ lặp lại mỗi 3 ngày
-                                    @endif
-                                </span>
+                            <small class="text-muted">
+                                <i class="fas fa-info-circle me-1"></i>
+                                <span id="recurringPreview">Công việc sẽ lặp lại mỗi 3 ngày từ ngày bắt đầu</span>
                             </small>
                         </div>
                     </div>
@@ -643,7 +574,7 @@ input[type="datetime-local"]::-webkit-outer-spin-button {
                 {{-- Trạng thái --}}
                 <div class="form-group">
                     <label for="status" class="form-label">
-                        <i class="bi bi-check2-circle me-1"></i>Trạng thái <span class="text-danger">*</span>
+                        <i class="bi bi-activity me-1"></i>Trạng thái <span class="text-danger">*</span>
                     </label>
                     <select name="status" id="status" class="form-select @error('status') is-invalid @enderror" required>
                         <option value="in_progress" {{ old('status', $task->status) == 'in_progress' ? 'selected' : '' }}>Đang làm</option>
@@ -662,8 +593,8 @@ input[type="datetime-local"]::-webkit-outer-spin-button {
                     <label for="rejection_reason" class="form-label">
                         <i class="bi bi-exclamation-triangle me-1"></i>Lý do từ chối <span class="text-danger">*</span>
                     </label>
-                    <textarea name="rejection_reason" id="rejection_reason" rows="3" 
-                              class="form-control @error('rejection_reason') is-invalid @enderror" 
+                    <textarea name="rejection_reason" id="rejection_reason" rows="3"
+                              class="form-control @error('rejection_reason') is-invalid @enderror"
                               placeholder="Nhập lý do từ chối công việc...">{{ old('rejection_reason', $task->rejection_reason) }}</textarea>
                     <div id="rejectionReasonError" class="text-danger mt-1" style="display: none;">
                         <i class="bi bi-exclamation-triangle me-1"></i>
@@ -698,6 +629,12 @@ document.addEventListener('DOMContentLoaded', function() {
             this.classList.add('active');
         });
     });
+
+    // Initialize active priority button
+    const checkedPriority = document.querySelector('input[name="priority"]:checked');
+    if (checkedPriority) {
+        document.querySelector(`label[for="${checkedPriority.id}"]`).classList.add('active');
+    }
 
     // File drop zone functionality
     const dropZone = document.querySelector('.file-drop-zone');
@@ -746,13 +683,13 @@ document.addEventListener('DOMContentLoaded', function() {
     function validateTextarea(textarea, errorElement) {
         const text = textarea.value;
         const isValid = checkWordLength(text);
-        
+
         if (!isValid) {
             errorElement.style.display = 'block';
-            submitBtn.disabled = true;
+            return false;
         } else {
             errorElement.style.display = 'none';
-            submitBtn.disabled = false;
+            return true;
         }
     }
 
@@ -767,15 +704,15 @@ document.addEventListener('DOMContentLoaded', function() {
         @endforeach
     @endif
 
-    function toggleDepartmentDropdown() {
+    window.toggleDepartmentDropdown = function() {
         const dropdown = document.getElementById('departmentDropdown');
         dropdown.classList.toggle('show');
     }
 
-    function confirmDepartmentSelection() {
+    window.confirmDepartmentSelection = function() {
         const selectedDepartments = Array.from(document.querySelectorAll('.department-checkbox:checked'))
             .map(cb => cb.value);
-        
+
         if (selectedDepartments.length === 0) {
             alert('Vui lòng chọn ít nhất một phòng ban');
             return;
@@ -789,17 +726,17 @@ document.addEventListener('DOMContentLoaded', function() {
 
         // Load users from selected departments
         loadUsersByDepartments(selectedDepartments);
-        
+
         // Close dropdown
         document.getElementById('departmentDropdown').classList.remove('show');
     }
 
     function loadUsersByDepartments(departmentIds) {
         // Filter users by selected departments
-        const filteredUsers = allUsers.filter(user => 
+        const filteredUsers = allUsers.filter(user =>
             departmentIds.includes(user.department_id.toString())
         );
-        
+
         displayUsers(filteredUsers);
     }
 
@@ -813,14 +750,14 @@ document.addEventListener('DOMContentLoaded', function() {
             userItem.dataset.userId = user.id;
             userItem.innerHTML = `
                 <span>${user.name} (${user.department_name})</span>
-                <input type="checkbox" ${selectedUsers.has(user.id) ? 'checked' : ''} 
+                <input type="checkbox" ${selectedUsers.has(user.id) ? 'checked' : ''}
                        onchange="toggleUser(${user.id}, '${user.name}', '${user.department_name}')">
             `;
             userList.appendChild(userItem);
         });
     }
 
-    function toggleUser(userId, userName, departmentName) {
+    window.toggleUser = function(userId, userName, departmentName) {
         if (selectedUsers.has(userId)) {
             selectedUsers.delete(userId);
             removeUserFromDisplay(userId);
@@ -833,6 +770,13 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function addUserToDisplay(userId, userName, departmentName) {
         const display = document.getElementById('selectedUsersDisplay');
+
+        // Remove "Chưa chọn..." text if exists
+        const placeholderText = display.querySelector('.text-muted');
+        if (placeholderText) {
+            placeholderText.remove();
+        }
+
         const badge = document.createElement('span');
         badge.className = 'selected-user-badge';
         badge.dataset.userId = userId;
@@ -845,25 +789,31 @@ document.addEventListener('DOMContentLoaded', function() {
         if (badge) {
             badge.remove();
         }
+
+        // Add placeholder text if no users selected
+        const display = document.getElementById('selectedUsersDisplay');
+        if (display.children.length === 0) {
+            display.innerHTML = '<span class="text-muted">Chưa chọn người phụ trách</span>';
+        }
     }
 
-    function removeUser(userId) {
+    window.removeUser = function(userId) {
         selectedUsers.delete(userId);
         removeUserFromDisplay(userId);
-        
+
         // Uncheck checkbox
         const checkbox = document.querySelector(`.user-item[data-user-id="${userId}"] input[type="checkbox"]`);
         if (checkbox) {
             checkbox.checked = false;
         }
-        
+
         updateAssigneeInputs();
     }
 
     function updateAssigneeInputs() {
         const container = document.getElementById('assigneeInputs');
         container.innerHTML = '';
-        
+
         selectedUsers.forEach(userId => {
             const input = document.createElement('input');
             input.type = 'hidden';
@@ -873,10 +823,10 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    function filterUsers() {
+    window.filterUsers = function() {
         const searchTerm = document.getElementById('userSearch').value.toLowerCase();
         const userItems = document.querySelectorAll('.user-item');
-        
+
         userItems.forEach(item => {
             const userName = item.querySelector('span').textContent.toLowerCase();
             if (userName.includes(searchTerm)) {
@@ -890,13 +840,14 @@ document.addEventListener('DOMContentLoaded', function() {
     // Load all users on page load
     @if(isset($users))
         allUsers = @json($users->map(function($user) {
-            return [
-                'id' => $user->id,
-                'name' => $user->name,
-                'department_id' => $user->department_id,
-                'department_name' => $user->department ? $user->department->name : 'N/A'
-            ];
-        }));
+            allUsers =                       <?php echo json_encode($users->map(function ($user) {
+                               return [
+                                   'id'            => $user->id,
+                                   'name'          => $user->name,
+                                   'department_id' => $user->department_id,
+                           ];
+                       })); ?>;
+
     @endif
 
     // Initialize user display if there are existing assignees
@@ -905,38 +856,30 @@ document.addEventListener('DOMContentLoaded', function() {
         @foreach($task->assignedUsers as $user)
             selectedDepartments.add({{ $user->department_id }});
         @endforeach
-        
+
         // Check department checkboxes
         selectedDepartments.forEach(deptId => {
             const checkbox = document.getElementById(`dept_${deptId}`);
             if (checkbox) checkbox.checked = true;
         });
-        
+
         // Update display text
         const deptNames = Array.from(selectedDepartments).map(id => {
             const checkbox = document.getElementById(`dept_${id}`);
             return checkbox ? checkbox.nextElementSibling.textContent : '';
         }).filter(name => name);
-        
+
         document.getElementById('selectedDepartmentsText').textContent = deptNames.join(', ');
-        
+
         // Load users from selected departments
         loadUsersByDepartments(Array.from(selectedDepartments));
     @endif
-        if (!isValid) {
-            errorElement.style.display = 'block';
-            return false;
-        } else {
-            errorElement.style.display = 'none';
-            return true;
-        }
-    }
 
     function updateSubmitButton() {
         const descriptionValid = validateTextarea(descriptionTextarea, descriptionError);
-        const rejectionReasonValid = rejectionReasonTextarea.style.display !== 'none' ? 
+        const rejectionReasonValid = rejectionReasonTextarea.style.display !== 'none' ?
             validateTextarea(rejectionReasonTextarea, rejectionReasonError) : true;
-        
+
         if (!descriptionValid || !rejectionReasonValid) {
             submitBtn.disabled = true;
             submitBtn.innerHTML = '<i class="bi bi-exclamation-triangle me-2"></i>Từ quá dài (>45 ký tự)';
@@ -977,9 +920,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
     form.addEventListener('submit', function(e) {
         const descriptionValid = checkWordLength(descriptionTextarea.value);
-        const rejectionReasonValid = rejectionReasonTextarea.style.display !== 'none' ? 
+        const rejectionReasonValid = rejectionReasonTextarea.style.display !== 'none' ?
             checkWordLength(rejectionReasonTextarea.value) : true;
-        
+
         if (!descriptionValid || !rejectionReasonValid) {
             e.preventDefault();
             alert('Không được phép nhập từ dài hơn 45 ký tự!');
@@ -1018,7 +961,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 recurringDaysInput.value = daysDiff;
 
                 // Cập nhật preview
-                const deadlineFormatted = deadline.toLocaleDateString('vi-VN');
                 recurringPreview.textContent = `Công việc sẽ lặp lại mỗi ${daysDiff} ngày từ ngày bắt đầu`;
 
                 // Cập nhật ngày bắt đầu lặp lại
@@ -1030,7 +972,6 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // Cập nhật thông tin lặp lại khi deadline thay đổi
-    const deadlineInput = document.querySelector('input[name="deadline"]');
     if (deadlineInput) {
         deadlineInput.addEventListener('change', function() {
             if (isRecurringCheckbox && isRecurringCheckbox.checked) {
