@@ -276,20 +276,40 @@ input[type="datetime-local"]::-webkit-outer-spin-button {
     align-items: center;
     background: #558EC1;
     color: white;
-    padding: 4px 8px;
-    border-radius: 16px;
-    margin: 2px;
+    padding: 6px 12px;
+    border-radius: 20px;
+    margin: 4px;
     font-size: 0.875rem;
+    transition: all 0.2s ease;
+}
+
+.selected-user-badge:hover {
+    background: #4a7c9e;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
 }
 
 .selected-user-badge i {
-    margin-left: 6px;
+    display: inline-block !important;
+    visibility: visible !important;
+    pointer-events: auto !important;
+}
+
+.selected-user-badge i {
+    margin-left: 8px;
     cursor: pointer;
-    font-size: 0.75rem;
+    font-size: 0.875rem;
+    transition: all 0.2s ease;
+    opacity: 0.8;
+    padding: 2px;
+    border-radius: 50%;
 }
 
 .selected-user-badge i:hover {
     color: #ff6b6b;
+    transform: scale(1.2);
+    opacity: 1;
+    background-color: rgba(255, 255, 255, 0.2);
 }
 </style>
 @endpush
@@ -388,15 +408,20 @@ input[type="datetime-local"]::-webkit-outer-spin-button {
                                         <input type="checkbox" id="dept_{{ $department->id }}"
                                                value="{{ $department->id }}"
                                                class="department-checkbox"
-                                               onchange="filterUsersByDepartments()">
+                                               onchange="onDepartmentChange()">
                                         <label for="dept_{{ $department->id }}">{{ $department->name }}</label>
                                     </div>
                                 @endforeach
                             </div>
                         </div>
-                        <button type="button" class="btn btn-sm btn-primary mt-2" onclick="confirmDepartmentSelection()">
-                            <i class="bi bi-check me-1"></i>Xác nhận phòng ban
-                        </button>
+                        <div class="mt-2">
+                            <button type="button" class="btn btn-sm btn-primary me-2" onclick="confirmDepartmentSelection()">
+                                <i class="bi bi-check me-1"></i>Xác nhận phòng ban
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="clearDepartmentSelection()">
+                                <i class="bi bi-x-circle me-1"></i>Xóa lựa chọn
+                            </button>
+                        </div>
                     </div>
 
                     {{-- Chọn người phụ trách --}}
@@ -426,12 +451,18 @@ input[type="datetime-local"]::-webkit-outer-spin-button {
                                 @foreach($task->assignedUsers as $user)
                                     <span class="selected-user-badge" data-user-id="{{ $user->id }}">
                                         {{ $user->name }} ({{ $user->department->name }})
-                                        <i class="bi bi-x" onclick="removeUser({{ $user->id }})"></i>
+                                        <i class="bi bi-x-circle" onclick="removeUser({{ $user->id }})" style="cursor: pointer; margin-left: 8px;"></i>
                                     </span>
                                 @endforeach
                             @else
                                 <span class="text-muted">Chưa chọn người phụ trách</span>
                             @endif
+                        </div>
+                        <div class="mt-2">
+                            <small class="text-muted">
+                                <i class="bi bi-info-circle me-1"></i>
+                                Click vào dấu X để xóa người phụ trách
+                            </small>
                         </div>
                     </div>
 
@@ -709,6 +740,21 @@ document.addEventListener('DOMContentLoaded', function() {
         dropdown.classList.toggle('show');
     }
 
+    window.onDepartmentChange = function() {
+        const selectedDepartments = Array.from(document.querySelectorAll('.department-checkbox:checked'))
+            .map(cb => cb.value);
+        
+        // Update display text
+        const textElement = document.getElementById('selectedDepartmentsText');
+        if (selectedDepartments.length === 0) {
+            textElement.textContent = 'Chọn phòng ban';
+        } else {
+            const departmentNames = Array.from(document.querySelectorAll('.department-checkbox:checked'))
+                .map(cb => cb.nextElementSibling.textContent);
+            textElement.textContent = departmentNames.join(', ');
+        }
+    }
+
     window.confirmDepartmentSelection = function() {
         const selectedDepartments = Array.from(document.querySelectorAll('.department-checkbox:checked'))
             .map(cb => cb.value);
@@ -718,17 +764,35 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
 
-        // Update display text
-        const textElement = document.getElementById('selectedDepartmentsText');
-        const departmentNames = Array.from(document.querySelectorAll('.department-checkbox:checked'))
-            .map(cb => cb.nextElementSibling.textContent);
-        textElement.textContent = departmentNames.join(', ');
-
+        // Clear existing users and reload from new departments
+        selectedUsers.clear();
+        clearSelectedUsersDisplay();
+        
         // Load users from selected departments
         loadUsersByDepartments(selectedDepartments);
 
         // Close dropdown
         document.getElementById('departmentDropdown').classList.remove('show');
+        
+        // Show success message
+        showMessage('Phòng ban đã được cập nhật. Vui lòng chọn lại người phụ trách.', 'success');
+    }
+
+    window.clearDepartmentSelection = function() {
+        // Uncheck all department checkboxes
+        document.querySelectorAll('.department-checkbox').forEach(cb => cb.checked = false);
+        
+        // Reset display text
+        document.getElementById('selectedDepartmentsText').textContent = 'Chọn phòng ban';
+        
+        // Clear user list
+        document.getElementById('userList').innerHTML = '';
+        
+        // Clear selected users
+        selectedUsers.clear();
+        clearSelectedUsersDisplay();
+        
+        showMessage('Đã xóa lựa chọn phòng ban', 'info');
     }
 
     function loadUsersByDepartments(departmentIds) {
@@ -738,6 +802,9 @@ document.addEventListener('DOMContentLoaded', function() {
         );
 
         displayUsers(filteredUsers);
+        
+        // Update hidden inputs for form submission
+        updateAssigneeInputs();
     }
 
     function displayUsers(users) {
@@ -780,7 +847,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const badge = document.createElement('span');
         badge.className = 'selected-user-badge';
         badge.dataset.userId = userId;
-        badge.innerHTML = `${userName} (${departmentName}) <i class="bi bi-x" onclick="removeUser(${userId})"></i>`;
+        badge.innerHTML = `${userName} (${departmentName}) <i class="bi bi-x-circle" onclick="removeUser(${userId})" style="cursor: pointer; margin-left: 8px;"></i>`;
         display.appendChild(badge);
     }
 
@@ -808,6 +875,32 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         updateAssigneeInputs();
+    }
+
+    function clearSelectedUsersDisplay() {
+        const display = document.getElementById('selectedUsersDisplay');
+        display.innerHTML = '<span class="text-muted">Chưa chọn người phụ trách</span>';
+    }
+
+    function showMessage(message, type = 'info') {
+        // Create message element
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `alert alert-${type === 'success' ? 'success' : 'info'} alert-dismissible fade show`;
+        messageDiv.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        
+        // Insert at the top of the form
+        const form = document.querySelector('form');
+        form.insertBefore(messageDiv, form.firstChild);
+        
+        // Auto remove after 3 seconds
+        setTimeout(() => {
+            if (messageDiv.parentNode) {
+                messageDiv.remove();
+            }
+        }, 3000);
     }
 
     function updateAssigneeInputs() {
@@ -838,17 +931,21 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // Load all users on page load
-    @if(isset($users))
-        allUsers = @json($users->map(function($user) {
-            allUsers =                       <?php echo json_encode($users->map(function ($user) {
-                               return [
-                                   'id'            => $user->id,
-                                   'name'          => $user->name,
-                                   'department_id' => $user->department_id,
-                           ];
-                       })); ?>;
+@if(isset($users))
+    @php
+        $usersForJs = $users->map(function ($user) {
+            return [
+                'id'               => $user->id,
+                'name'             => $user->name,
+                'department_id'    => $user->department_id,
+                'department_name'  => optional($user->department)->name,
+            ];
+        })->values();
+    @endphp
 
-    @endif
+    allUsers = @json($usersForJs);
+@endif
+
 
     // Initialize user display if there are existing assignees
     @if($task->assignedUsers && $task->assignedUsers->count() > 0)
@@ -873,6 +970,15 @@ document.addEventListener('DOMContentLoaded', function() {
 
         // Load users from selected departments
         loadUsersByDepartments(Array.from(selectedDepartments));
+        
+        // Mark existing users as selected in the user list
+        @foreach($task->assignedUsers as $user)
+            const userItem = document.querySelector(`.user-item[data-user-id="{{ $user->id }}"]`);
+            if (userItem) {
+                const checkbox = userItem.querySelector('input[type="checkbox"]');
+                if (checkbox) checkbox.checked = true;
+            }
+        @endforeach
     @endif
 
     function updateSubmitButton() {

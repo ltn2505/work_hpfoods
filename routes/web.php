@@ -36,6 +36,8 @@ Route::middleware(['auth'])->group(function () {
     Route::middleware('role:admin')->group(function () {
         Route::resource('users', UserController::class)->except(['show']);
         Route::resource('departments', \App\Http\Controllers\DepartmentController::class)->except(['show']);
+        // Quản lý tasks thống nhất
+        
         // Nếu có DepartmentController thì thêm ở đây
         // Route::resource('departments', DepartmentController::class);
     });
