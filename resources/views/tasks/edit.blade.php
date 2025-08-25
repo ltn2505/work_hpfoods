@@ -147,13 +147,36 @@
     padding: 20px;
 }
 
-/* Fix datetime-local input */
+/* Đảm bảo container dropdown luôn nổi và có thể click */
+.custom-dropdown {
+  position: relative !important;
+  z-index: 3000 !important;   /* cao hơn mọi control xung quanh */
+}
+
+/* Toggle phải nhận được click */
+.custom-dropdown .dropdown-toggle {
+  pointer-events: auto !important;
+}
+
+/* Menu phải hiện lên trên mọi thứ (kể cả datetime input) */
+.custom-dropdown .dropdown-menu {
+  position: absolute !important;
+  top: 100%;
+  left: 0;
+  right: 0;
+  display: none;
+  z-index: 4000 !important;   /* đủ cao để không bị che */
+}
+
+.custom-dropdown .dropdown-menu.show {
+  display: block !important;
+}
+
+/* Gỡ việc datetime-local chặn click (đang set z-index quá cao) */
 input[type="datetime-local"] {
-    z-index: 9999 !important;
-    position: relative !important;
-    background-color: white !important;
-    cursor: pointer !important;
-    pointer-events: auto !important;
+  z-index: auto !important;     /* hoặc 1, miễn thấp hơn 3000/4000 */
+  position: relative !important;
+  pointer-events: auto !important;
 }
 
 input[type="datetime-local"]::-webkit-calendar-picker-indicator {
@@ -168,10 +191,10 @@ input[type="datetime-local"]::-webkit-outer-spin-button {
     margin: 0;
 }
 
-/* Department and User Selection Styles */
-.department-dropdown {
+/* Custom dropdown styling */
+.custom-dropdown {
     position: relative;
-    display: inline-block;
+    width: 100%;
 }
 
 .dropdown-toggle {
@@ -184,12 +207,27 @@ input[type="datetime-local"]::-webkit-outer-spin-button {
     background: white;
     cursor: pointer;
     transition: all 0.3s ease;
-    min-width: 200px;
+    user-select: none;
+    position: relative;
+    z-index: 10;
 }
 
 .dropdown-toggle:hover {
     border-color: #558EC1;
     box-shadow: 0 0 0 0.2rem rgba(85, 142, 193, 0.25);
+}
+
+.dropdown-toggle.active {
+    border-color: #558EC1;
+    box-shadow: 0 0 0 0.2rem rgba(85, 142, 193, 0.25);
+}
+
+.dropdown-toggle.active i {
+    transform: rotate(180deg);
+}
+
+.dropdown-toggle i {
+    transition: transform 0.3s ease;
 }
 
 .dropdown-menu {
@@ -205,10 +243,48 @@ input[type="datetime-local"]::-webkit-outer-spin-button {
     max-height: 200px;
     overflow-y: auto;
     display: none;
+    pointer-events: auto;
 }
 
 .dropdown-menu.show {
     display: block;
+}
+
+.dropdown-item {
+    padding: 8px 16px;
+    border-bottom: 1px solid #f0f0f0;
+    transition: background-color 0.2s ease;
+}
+
+.dropdown-item:last-child {
+    border-bottom: none;
+}
+
+.dropdown-item:hover {
+    background-color: #f8f9fa;
+}
+
+.dropdown-item .form-check {
+    margin: 0;
+    width: 100%;
+}
+
+.dropdown-item .form-check-input {
+    margin-right: 8px;
+}
+
+.dropdown-item .form-check-label {
+    font-size: 0.9rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+}
+
+.dropdown-item .badge {
+    font-size: 0.7rem;
+    padding: 2px 6px;
 }
 
 .dropdown-item {
@@ -386,97 +462,122 @@ input[type="datetime-local"]::-webkit-outer-spin-button {
                     @enderror
                 </div>
 
-                {{-- Người phụ trách --}}
+                {{-- Multi-Department Assignment --}}
                 <div class="form-group">
                     <label class="form-label">
-                        <i class="bi bi-people me-1"></i>Người phụ trách
+                        <i class="bi bi-building me-1"></i>Phòng ban
                     </label>
-
-                    {{-- Chọn phòng ban --}}
-                    <div class="mb-3">
-                        <label class="form-label fw-bold text-dark">
-                            <i class="bi bi-building me-1"></i>Chọn phòng ban:
+                    <div class="form-check mb-2">
+                        <input class="form-check-input" type="checkbox" name="is_multi_department" id="is_multi_department" value="1" 
+                               {{ old('is_multi_department', $task->is_multi_department) ? 'checked' : '' }}>
+                        <label class="form-check-label" for="is_multi_department">
+                            <i class="bi bi-diagram-3 me-1"></i>Giao việc cho nhiều phòng ban
                         </label>
-                        <div class="department-dropdown">
-                            <div class="dropdown-toggle" onclick="toggleDepartmentDropdown()">
-                                <span id="selectedDepartmentsText">Chọn phòng ban</span>
+                    </div>
+                    
+                    {{-- Single Department --}}
+                    <div id="single_department_section" class="{{ old('is_multi_department', $task->is_multi_department) ? 'd-none' : '' }}">
+                        <select name="department_id" id="department_id" class="form-select @error('department_id') is-invalid @enderror">
+                            <option value="">Chọn phòng ban</option>
+                            @foreach($departments as $department)
+                                <option value="{{ $department->id }}" {{ old('department_id', $task->department_id) == $department->id ? 'selected' : '' }}>
+                                    {{ $department->name }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
+                    
+                    {{-- Multi-Department --}}
+                    <div id="multi_department_section" class="{{ old('is_multi_department', $task->is_multi_department) ? '' : 'd-none' }}">
+                        <div class="custom-dropdown">
+                            <div class="dropdown-toggle" id="department_dropdown_toggle">
+                                <span class="selected-text">Chọn phòng ban...</span>
                                 <i class="bi bi-chevron-down"></i>
                             </div>
-                            <div class="dropdown-menu" id="departmentDropdown">
+                            <div class="dropdown-menu" id="department_dropdown_menu">
                                 @foreach($departments as $department)
                                     <div class="dropdown-item">
-                                        <input type="checkbox" id="dept_{{ $department->id }}"
-                                               value="{{ $department->id }}"
-                                               class="department-checkbox"
-                                               onchange="onDepartmentChange()">
-                                        <label for="dept_{{ $department->id }}">{{ $department->name }}</label>
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" name="department_ids[]" 
+                                                   value="{{ $department->id }}" id="dept_{{ $department->id }}"
+                                                   {{ in_array($department->id, old('department_ids', $task->departments->pluck('id')->toArray())) ? 'checked' : '' }}>
+                                            <label class="form-check-label" for="dept_{{ $department->id }}">
+                                                {{ $department->name }}
+                                            </label>
+                                        </div>
                                     </div>
                                 @endforeach
                             </div>
                         </div>
-                        <div class="mt-2">
-                            <button type="button" class="btn btn-sm btn-primary me-2" onclick="confirmDepartmentSelection()">
-                                <i class="bi bi-check me-1"></i>Xác nhận phòng ban
-                            </button>
-                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="clearDepartmentSelection()">
-                                <i class="bi bi-x-circle me-1"></i>Xóa lựa chọn
-                            </button>
-                        </div>
                     </div>
+                    @error('department_id')
+                        <div class="invalid-feedback">{{ $message }}</div>
+                    @enderror
+                    @error('department_ids')
+                        <div class="invalid-feedback">{{ $message }}</div>
+                    @enderror
+                </div>
 
-                    {{-- Chọn người phụ trách --}}
-                    <div class="mb-3">
-                        <label class="form-label fw-bold text-dark">
-                            <i class="bi bi-person me-1"></i>Chọn người phụ trách:
+                {{-- Multi-User Assignment --}}
+                <div class="form-group">
+                    <label class="form-label">
+                        <i class="bi bi-people me-1"></i>Người phụ trách
+                    </label>
+                    <div class="form-check mb-2">
+                        <input class="form-check-input" type="checkbox" name="is_multi_user" id="is_multi_user" value="1" 
+                               {{ old('is_multi_user', $task->assignees->count() > 0) ? 'checked' : '' }}>
+                        <label class="form-check-label" for="is_multi_user">
+                            <i class="bi bi-people-fill me-1"></i>Giao việc cho nhiều người
                         </label>
-                        <div class="user-selection-area">
-                            <div class="search-box mb-2">
-                                <input type="text" id="userSearch" class="form-control"
-                                       placeholder="Tìm kiếm theo tên..."
-                                       onkeyup="filterUsers()">
-                            </div>
-                            <div class="user-list" id="userList">
-                                <!-- Users will be loaded here -->
-                            </div>
-                        </div>
                     </div>
-
-                    {{-- Hiển thị người đã chọn --}}
-                    <div class="selected-users mb-3">
-                        <label class="form-label fw-bold text-dark">
-                            <i class="bi bi-check-circle me-1"></i>Người đã chọn:
-                        </label>
-                        <div id="selectedUsersDisplay" class="selected-users-display">
-                            @if($task->assignedUsers && $task->assignedUsers->count() > 0)
-                                @foreach($task->assignedUsers as $user)
-                                    <span class="selected-user-badge" data-user-id="{{ $user->id }}">
-                                        {{ $user->name }} ({{ $user->department->name }})
-                                        <i class="bi bi-x-circle" onclick="removeUser({{ $user->id }})" style="cursor: pointer; margin-left: 8px;"></i>
-                                    </span>
-                                @endforeach
-                            @else
-                                <span class="text-muted">Chưa chọn người phụ trách</span>
-                            @endif
-                        </div>
-                        <div class="mt-2">
-                            <small class="text-muted">
-                                <i class="bi bi-info-circle me-1"></i>
-                                Click vào dấu X để xóa người phụ trách
-                            </small>
-                        </div>
-                    </div>
-
-                    {{-- Hidden inputs for form submission --}}
-                    <div id="assigneeInputs">
-                        @if($task->assignedUsers && $task->assignedUsers->count() > 0)
-                            @foreach($task->assignedUsers as $user)
-                                <input type="hidden" name="assignee_ids[]" value="{{ $user->id }}">
+                    
+                    {{-- Single User --}}
+                    <div id="single_user_section" class="{{ old('is_multi_user', $task->assignees->count() > 0) ? 'd-none' : '' }}">
+                        <select name="assignee_id" id="assignee_id" class="form-select @error('assignee_id') is-invalid @enderror">
+                            <option value="">Chọn người phụ trách</option>
+                            @foreach($users as $user)
+                                @if($user)
+                                    <option value="{{ $user->id }}" {{ old('assignee_id', $task->assignee_id) == $user->id ? 'selected' : '' }}>
+                                        {{ $user->name ?? 'Không có tên' }} @if($user->department) ({{ $user->department->name }}) @endif
+                                    </option>
+                                @endif
                             @endforeach
-                        @endif
+                        </select>
                     </div>
-
+                    
+                    {{-- Multi-User --}}
+                    <div id="multi_user_section" class="{{ old('is_multi_user', $task->assignees->count() > 0) ? '' : 'd-none' }}">
+                        <div class="custom-dropdown">
+                            <div class="dropdown-toggle" id="user_dropdown_toggle">
+                                <span class="selected-text">Chọn người phụ trách...</span>
+                                <i class="bi bi-chevron-down"></i>
+                            </div>
+                            <div class="dropdown-menu" id="user_dropdown_menu">
+                                @foreach($users as $user)
+                                    @if($user)
+                                        <div class="dropdown-item">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" name="assignee_ids[]" 
+                                                       value="{{ $user->id }}" id="user_{{ $user->id }}"
+                                                       {{ in_array($user->id, old('assignee_ids', $task->assignees->pluck('id')->toArray())) ? 'checked' : '' }}>
+                                                <label class="form-check-label" for="user_{{ $user->id }}">
+                                                    {{ $user->name ?? 'Không có tên' }} 
+                                                    @if($user->department) 
+                                                        <span class="badge bg-secondary">{{ $user->department->name }}</span>
+                                                    @endif
+                                                </label>
+                                            </div>
+                                        </div>
+                                    @endif
+                                @endforeach
+                            </div>
+                        </div>
+                    </div>
+                    @error('assignee_id')
+                        <div class="invalid-feedback">{{ $message }}</div>
+                    @enderror
                     @error('assignee_ids')
-                        <div class="text-danger small mt-1">{{ $message }}</div>
+                        <div class="invalid-feedback">{{ $message }}</div>
                     @enderror
                 </div>
 
@@ -531,11 +632,11 @@ input[type="datetime-local"]::-webkit-outer-spin-button {
                             class="form-check-input"
                             type="checkbox"
                             name="is_multi_department"
-                            id="isMultiDepartment"
+                            id="isMultiDepartmentFlag"
                             value="1"
                             {{ old('is_multi_department', $task->is_multi_department) ? 'checked' : '' }}
                         >
-                        <label class="form-check-label fw-bold text-dark" for="isMultiDepartment">
+                        <label class="form-check-label fw-bold text-dark" for="isMultiDepartmentFlag">
                             <i class="bi bi-diagram-3 me-2"></i>Công việc đa phòng ban
                         </label>
                         <div class="form-text text-info">
@@ -730,9 +831,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Initialize with existing assigned users
     @if($task->assignedUsers && $task->assignedUsers->count() > 0)
-        @foreach($task->assignedUsers as $user)
-            selectedUsers.add({{ $user->id }});
-        @endforeach
+        const preselectedUserIds = @json($task->assignedUsers->pluck('id'));
+        preselectedUserIds.forEach(id => selectedUsers.add(id));
     @endif
 
     window.toggleDepartmentDropdown = function() {
@@ -950,9 +1050,8 @@ document.addEventListener('DOMContentLoaded', function() {
     // Initialize user display if there are existing assignees
     @if($task->assignedUsers && $task->assignedUsers->count() > 0)
         const selectedDepartments = new Set();
-        @foreach($task->assignedUsers as $user)
-            selectedDepartments.add({{ $user->department_id }});
-        @endforeach
+        const userDepartmentIds = @json($task->assignedUsers->pluck('department_id'));
+        userDepartmentIds.forEach(deptId => selectedDepartments.add(deptId));
 
         // Check department checkboxes
         selectedDepartments.forEach(deptId => {
@@ -972,13 +1071,14 @@ document.addEventListener('DOMContentLoaded', function() {
         loadUsersByDepartments(Array.from(selectedDepartments));
         
         // Mark existing users as selected in the user list
-        @foreach($task->assignedUsers as $user)
-            const userItem = document.querySelector(`.user-item[data-user-id="{{ $user->id }}"]`);
-            if (userItem) {
-                const checkbox = userItem.querySelector('input[type="checkbox"]');
-                if (checkbox) checkbox.checked = true;
+        const preselectedUserIds = @json($task->assignedUsers->pluck('id'));
+        preselectedUserIds.forEach((id) => {
+            const el = document.querySelector(`.user-item[data-user-id="${id}"]`);
+            if (el) {
+                const cb = el.querySelector('input[type="checkbox"]');
+                if (cb) cb.checked = true;
             }
-        @endforeach
+        });
     @endif
 
     function updateSubmitButton() {
@@ -1101,6 +1201,137 @@ function handleFileSelect(input) {
             <p class="mb-0 fw-semibold text-success">Đã chọn ${files.length} file</p>
             <small class="text-muted">Click để thay đổi</small>
         `;
+    }
+}
+
+// Multi-user and multi-department toggle
+const multiUserCheckbox = document.getElementById('is_multi_user');
+const singleUserSection = document.getElementById('single_user_section');
+const multiUserSection = document.getElementById('multi_user_section');
+
+const multiDepartmentCheckbox = document.getElementById('is_multi_department');
+const singleDepartmentSection = document.getElementById('single_department_section');
+const multiDepartmentSection = document.getElementById('multi_department_section');
+
+// Multi-user toggle
+if (multiUserCheckbox) {
+    multiUserCheckbox.addEventListener('change', function() {
+        if (this.checked) {
+            singleUserSection.classList.add('d-none');
+            multiUserSection.classList.remove('d-none');
+            // Clear single user selection
+            document.getElementById('assignee_id').value = '';
+        } else {
+            singleUserSection.classList.remove('d-none');
+            multiUserSection.classList.add('d-none');
+            // Clear multi user selections
+            const checkboxes = multiUserSection.querySelectorAll('input[type="checkbox"]');
+            checkboxes.forEach(cb => cb.checked = false);
+            updateSelectedText('user');
+        }
+    });
+}
+
+// Multi-department toggle
+if (multiDepartmentCheckbox) {
+    multiDepartmentCheckbox.addEventListener('change', function() {
+        if (this.checked) {
+            singleDepartmentSection.classList.add('d-none');
+            multiDepartmentSection.classList.remove('d-none');
+            // Clear single department selection
+            document.getElementById('department_id').value = '';
+        } else {
+            singleDepartmentSection.classList.remove('d-none');
+            multiDepartmentSection.classList.add('d-none');
+            // Clear multi department selections
+            const checkboxes = multiDepartmentSection.querySelectorAll('input[type="checkbox"]');
+            checkboxes.forEach(cb => cb.checked = false);
+            updateSelectedText('department');
+        }
+    });
+}
+
+// Ổn định JS toggle dropdown (đảm bảo click là mở)
+(function() {
+  // Tránh add listener nhiều lần
+  let dropdownsBound = false;
+
+  function bindDropdown(toggleId, menuId) {
+    const toggle = document.getElementById(toggleId);
+    const menu   = document.getElementById(menuId);
+    if (!toggle || !menu) return;
+
+    // Gỡ listener cũ nếu có
+    toggle.onclick = null;
+
+    toggle.addEventListener('click', function(e) {
+      e.stopPropagation();
+      toggle.classList.toggle('active');
+      menu.classList.toggle('show');
+    });
+  }
+
+  function closeAllCustomDropdowns() {
+    document.querySelectorAll('.custom-dropdown .dropdown-menu.show')
+      .forEach(m => m.classList.remove('show'));
+    document.querySelectorAll('.custom-dropdown .dropdown-toggle.active')
+      .forEach(t => t.classList.remove('active'));
+  }
+
+  function initDropdownsOnce() {
+    if (dropdownsBound) return;
+    bindDropdown('department_dropdown_toggle', 'department_dropdown_menu');
+    bindDropdown('user_dropdown_toggle',       'user_dropdown_menu');
+
+    // Add event listeners for checkbox changes
+    const deptCheckboxes = document.querySelectorAll('#department_dropdown_menu input[type="checkbox"]');
+    deptCheckboxes.forEach(cb => {
+      cb.addEventListener('change', () => updateSelectedText('department'));
+    });
+
+    const userCheckboxes = document.querySelectorAll('#user_dropdown_menu input[type="checkbox"]');
+    userCheckboxes.forEach(cb => {
+      cb.addEventListener('change', () => updateSelectedText('user'));
+    });
+
+    // Click ngoài để đóng
+    document.addEventListener('click', function(e) {
+      if (!e.target.closest('.custom-dropdown')) {
+        closeAllCustomDropdowns();
+      }
+    });
+
+    dropdownsBound = true;
+  }
+
+  // Gọi khi DOM sẵn sàng
+  document.addEventListener('DOMContentLoaded', initDropdownsOnce);
+  window.addEventListener('load', initDropdownsOnce);
+})();
+
+function updateSelectedText(type) {
+    let toggle, checkboxes, placeholder;
+    
+    if (type === 'department') {
+        toggle = document.getElementById('department_dropdown_toggle');
+        checkboxes = document.querySelectorAll('#department_dropdown_menu input[type="checkbox"]:checked');
+        placeholder = 'Chọn phòng ban...';
+    } else if (type === 'user') {
+        toggle = document.getElementById('user_dropdown_toggle');
+        checkboxes = document.querySelectorAll('#user_dropdown_menu input[type="checkbox"]:checked');
+        placeholder = 'Chọn người phụ trách...';
+    }
+
+    if (toggle && checkboxes) {
+        const selectedText = toggle.querySelector('.selected-text');
+        if (checkboxes.length === 0) {
+            selectedText.textContent = placeholder;
+        } else if (checkboxes.length === 1) {
+            const label = checkboxes[0].nextElementSibling.textContent.trim();
+            selectedText.textContent = label;
+        } else {
+            selectedText.textContent = `Đã chọn ${checkboxes.length} mục`;
+        }
     }
 }
 </script>

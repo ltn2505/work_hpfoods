@@ -195,35 +195,38 @@ class TaskController extends Controller
             // Admin có thể chỉnh sửa mọi task
         } elseif ($user->isManager()) {
             // Manager chỉ có thể chỉnh sửa task của phòng ban mình
-            if ($task->assignedUsers->where('department_id', $user->department_id)->count() === 0 &&
+            if ($task->assignee && $task->assignee->department_id !== $user->department_id &&
                 $task->creator && $task->creator->department_id !== $user->department_id) {
                 abort(403, 'Bạn chỉ có thể chỉnh sửa task của phòng ban mình.');
             }
         } else {
             // Employee chỉ có thể chỉnh sửa task của mình
-            if ($task->assignedUsers->where('id', $user->id)->count() === 0 && $task->creator_id !== $user->id) {
+            if ($task->assignee_id !== $user->id && $task->creator_id !== $user->id) {
                 abort(403, 'Bạn chỉ có thể chỉnh sửa task của mình.');
             }
         }
         
+        // Load relationships
+        $task->load(['assignees', 'departments']);
+        
         // Lấy danh sách users có thể assign
         if ($user->isAdmin()) {
             // Admin có thể giao việc cho tất cả users
-            $users = User::with('department')->orderBy('name')->get();
+            $users = User::with('department')->orderBy('name')->get(['id','name','department_id']);
         } elseif ($user->isManager()) {
             // Manager chỉ có thể giao việc cho users cùng phòng ban
             $users = User::with('department')
                         ->where('department_id', $user->department_id)
                         ->where('id', '!=', $user->id) // Không giao việc cho chính mình
                         ->orderBy('name')
-                        ->get();
+                        ->get(['id','name','department_id']);
         } else {
             // Employee không thể giao việc
             $users = collect();
         }
         
         // Lấy danh sách departments
-        $departments = Department::orderBy('name')->get();
+        $departments = Department::orderBy('name')->get(['id', 'name']);
         
         return view('tasks.edit', compact('task', 'users', 'departments'));
     }
@@ -237,13 +240,13 @@ class TaskController extends Controller
             // Admin có thể cập nhật mọi task
         } elseif ($user->isManager()) {
             // Manager chỉ có thể cập nhật task của phòng ban mình
-            if ($task->assignedUsers->where('department_id', $user->department_id)->count() === 0 &&
+            if ($task->assignee && $task->assignee->department_id !== $user->department_id &&
                 $task->creator && $task->creator->department_id !== $user->department_id) {
                 abort(403, 'Bạn chỉ có thể cập nhật task của phòng ban mình.');
             }
         } else {
             // Employee chỉ có thể cập nhật task của mình
-            if ($task->assignedUsers->where('id', $user->id)->count() === 0 && $task->creator_id !== $user->id) {
+            if ($task->assignee_id !== $user->id && $task->creator_id !== $user->id) {
                 abort(403, 'Bạn chỉ có thể cập nhật task của mình.');
             }
         }
@@ -251,17 +254,20 @@ class TaskController extends Controller
         $data = $request->validate([
             'title'       => 'required|string|max:255',
             'description' => 'nullable|string',
+            'assignee_id' => 'nullable|exists:users,id',
             'assignee_ids' => 'nullable|array',
             'assignee_ids.*' => 'exists:users,id',
-            'deadline'    => 'nullable|date|after:today',
+            'department_id' => 'nullable|exists:departments,id',
+            'department_ids' => 'nullable|array',
+            'department_ids.*' => 'exists:departments,id',
+            'is_multi_user' => 'nullable|boolean',
+            'is_multi_department' => 'nullable|boolean',
+            'deadline'    => 'nullable|date',
             'priority'    => 'nullable|in:low,medium,high',
             'status'      => 'required|in:in_progress,completed,rejected,overdue,finished',
             'rejection_reason' => 'nullable|string|max:1000',
-            'files.*'     => 'nullable|file|mimes:pdf,doc,docx,xls,xlsx,ppt,pptx,jpg,jpeg,png,gif,webp,mp4,avi,mov,wmv,flv,webm|max:307200',
-            'is_recurring' => 'nullable|boolean',
-            'recurring_start_date' => 'nullable|date|after_or_equal:today',
-            'recurring_days' => 'nullable|integer|min:1|max:365',
-            'is_multi_department' => 'nullable|boolean',
+            'tracking_code' => 'nullable|string|max:255',
+            'files.*'     => 'nullable|file|mimes:pdf,doc,docx,xls,xlsx,ppt,pptx,jpg,jpeg,png,gif,webp,mp4,avi,mov,wmv,flv,webm|max:51200',
         ]);
 
         // Kiểm tra lý do từ chối khi trạng thái là rejected
@@ -274,14 +280,59 @@ class TaskController extends Controller
             $data['rejection_reason'] = null;
         }
 
-        // Kiểm tra quyền theo phòng ban cho assignees
-        if (!empty($data['assignee_ids']) && $user->isManager()) {
-            $assignees = User::whereIn('id', $data['assignee_ids'])->get();
-            foreach ($assignees as $assignee) {
+        // Xử lý multi-user và multi-department assignments
+        $isMultiUser = $request->has('is_multi_user');
+        $isMultiDepartment = $request->has('is_multi_department');
+
+        // Xóa các assignments cũ
+        $task->assignees()->detach();
+        $task->departments()->detach();
+
+        if ($isMultiUser && $request->has('assignee_ids')) {
+            // Multi-user assignment
+            $assigneeIds = $request->assignee_ids;
+            
+            // Kiểm tra quyền theo phòng ban cho tất cả assignees
+            if ($user->isManager()) {
+                foreach ($assigneeIds as $assigneeId) {
+                    $assignee = User::find($assigneeId);
+                    if ($assignee->department_id !== $user->department_id) {
+                        abort(403, 'Bạn chỉ có thể giao việc cho nhân viên cùng phòng ban.');
+                    }
+                }
+            }
+            
+            // Thêm assignments mới
+            $task->assignees()->attach($assigneeIds);
+            $data['assignee_id'] = null; // Clear single assignee
+        } elseif ($request->has('assignee_id') && $request->assignee_id) {
+            // Single user assignment
+            $data['assignee_id'] = $request->assignee_id;
+            
+            // Kiểm tra quyền theo phòng ban cho assignee
+            if ($user->isManager()) {
+                $assignee = User::find($data['assignee_id']);
                 if ($assignee->department_id !== $user->department_id) {
                     abort(403, 'Bạn chỉ có thể giao việc cho nhân viên cùng phòng ban.');
                 }
             }
+        } else {
+            $data['assignee_id'] = null;
+        }
+
+        if ($isMultiDepartment && $request->has('department_ids')) {
+            // Multi-department assignment
+            $departmentIds = $request->department_ids;
+            $task->departments()->attach($departmentIds);
+            $data['department_id'] = null; // Clear single department
+            $data['is_multi_department'] = true;
+        } elseif ($request->has('department_id') && $request->department_id) {
+            // Single department assignment
+            $data['department_id'] = $request->department_id;
+            $data['is_multi_department'] = false;
+        } else {
+            $data['department_id'] = null;
+            $data['is_multi_department'] = false;
         }
 
         // Xử lý upload file
@@ -324,30 +375,7 @@ class TaskController extends Controller
             $data['recurring_start_date'] = null;
         }
 
-        // Xử lý multiple assignees
-        if (!empty($data['assignee_ids'])) {
-            // Xóa assignees cũ
-            $task->assignees()->delete();
-            
-            // Set assignee chính (người đầu tiên) để tương thích ngược
-            $task->update(['assignee_id' => $data['assignee_ids'][0]]);
-            
-            // Lưu tất cả assignees mới vào bảng pivot
-            foreach ($data['assignee_ids'] as $assigneeId) {
-                $task->assignees()->create(['user_id' => $assigneeId]);
-            }
-            
-            // Tự động xác định nếu là multi-department task
-            $assignees = User::whereIn('id', $data['assignee_ids'])->get();
-            $departments = $assignees->pluck('department_id')->unique();
-            if ($departments->count() > 1) {
-                $data['is_multi_department'] = true;
-            }
-        } else {
-            // Nếu không có assignee nào, xóa tất cả
-            $task->assignees()->delete();
-            $task->update(['assignee_id' => null]);
-        }
+
 
         $task->update($data);
 
