@@ -360,7 +360,7 @@ input[type="datetime-local"]::-webkit-outer-spin-button {
                     <label for="title" class="form-label">
                         <i class="bi bi-type me-1"></i>Tiêu đề <span class="text-danger">*</span>
                     </label>
-                    <input type="text" name="title" id="title" class="form-control @error('title') is-invalid @enderror" 
+                    <input type="text" name="title" id="title" class="form-control @error('title') is-invalid @enderror"
                            value="{{ old('title', $task->title) }}" required>
                     @error('title')
                         <div class="invalid-feedback">{{ $message }}</div>
@@ -372,7 +372,7 @@ input[type="datetime-local"]::-webkit-outer-spin-button {
                     <label for="description" class="form-label">
                         <i class="bi bi-text-paragraph me-1"></i>Mô tả
                     </label>
-                    <textarea name="description" id="description" rows="4" class="form-control @error('description') is-invalid @enderror" 
+                    <textarea name="description" id="description" rows="4" class="form-control @error('description') is-invalid @enderror"
                               placeholder="Mô tả chi tiết công việc..." maxlength="1000">{{ old('description', $task->description) }}</textarea>
                     <div class="d-flex justify-content-between align-items-center mt-1">
                         <small class="text-muted">Tối đa 1000 ký tự</small>
@@ -395,7 +395,7 @@ input[type="datetime-local"]::-webkit-outer-spin-button {
                             Hỗ trợ: PDF, DOC, DOCX, XLS, XLSX, PPT, PPTX, JPG, PNG, GIF, WEBP, MP4, AVI, MOV, WMV, FLV, WEBM (Tối đa 50MB)
                         </small>
                     </div>
-                    <input type="file" name="files[]" id="files" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.jpeg,.png,.gif,.webp,.mp4,.avi,.mov,.wmv,.flv,.webm" 
+                    <input type="file" name="files[]" id="files" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.jpeg,.png,.gif,.webp,.mp4,.avi,.mov,.wmv,.flv,.webm"
                            class="d-none" onchange="handleFileSelect(this)">
                     @error('files.*')
                         <div class="text-danger small mt-1">{{ $message }}</div>
@@ -472,27 +472,27 @@ input[type="datetime-local"]::-webkit-outer-spin-button {
                                 @endforeach
                             </div>
                         </div>
-                    </div>
+                        </div>
                     @error('department_id')
                         <div class="invalid-feedback">{{ $message }}</div>
                     @enderror
                     @error('department_ids')
                         <div class="invalid-feedback">{{ $message }}</div>
                     @enderror
-                </div>
+                    </div>
 
                 {{-- Multi-User Assignment --}}
                 <div class="form-group">
                     <label class="form-label">
                         <i class="bi bi-people me-1"></i>Người phụ trách
-                    </label>
+                        </label>
                     <div class="form-check mb-2">
                         <input class="form-check-input" type="checkbox" name="is_multi_user" id="is_multi_user" value="1" 
                                {{ old('is_multi_user', $task->assignees->count() > 0) ? 'checked' : '' }}>
                         <label class="form-check-label" for="is_multi_user">
                             <i class="bi bi-people-fill me-1"></i>Giao việc cho nhiều người
                         </label>
-                    </div>
+                            </div>
                     
                     {{-- Single User --}}
                     <div id="single_user_section" class="{{ old('is_multi_user', $task->assignees->count() > 0) ? 'd-none' : '' }}">
@@ -507,7 +507,7 @@ input[type="datetime-local"]::-webkit-outer-spin-button {
                             @endforeach
                         </select>
                     </div>
-                    
+
                     {{-- Multi-User --}}
                     <div id="multi_user_section" class="{{ old('is_multi_user', $task->assignees->count() > 0) ? '' : 'd-none' }}">
                         <div class="custom-dropdown">
@@ -529,14 +529,14 @@ input[type="datetime-local"]::-webkit-outer-spin-button {
                                                         @if($user->department) 
                                                             <span class="badge bg-secondary">{{ $user->department->name }}</span>
                                                         @endif
-                                                    </label>
+                        </label>
                                                 </div>
                                             </div>
-                                        @endif
+                            @endif
                                     @endforeach
-                                </div>
-                            </div>
                         </div>
+                        </div>
+                    </div>
                     </div>
                     @error('assignee_id')
                         <div class="invalid-feedback">{{ $message }}</div>
@@ -551,7 +551,7 @@ input[type="datetime-local"]::-webkit-outer-spin-button {
                     <label for="deadline" class="form-label">
                         <i class="bi bi-calendar-event me-1"></i>Deadline
                     </label>
-                    <input type="datetime-local" name="deadline" id="deadline" 
+                    <input type="datetime-local" name="deadline" id="deadline"
                            class="form-control @error('deadline') is-invalid @enderror"
                            value="{{ old('deadline', $task->deadline ? $task->deadline->format('Y-m-d\TH:i') : '') }}"
                            placeholder="dd/mm/yyyy --:--">
@@ -566,19 +566,19 @@ input[type="datetime-local"]::-webkit-outer-spin-button {
                         <i class="bi bi-flag me-1"></i>Độ ưu tiên
                     </label>
                     <div class="priority-buttons">
-                        <input type="radio" name="priority" value="low" id="priority_low" 
+                        <input type="radio" name="priority" value="low" id="priority_low"
                                {{ old('priority', $task->priority) == 'low' ? 'checked' : '' }} class="d-none">
                         <label for="priority_low" class="priority-btn priority-low">
                             <i class="bi bi-flag me-1"></i>Thấp
                         </label>
 
-                        <input type="radio" name="priority" value="medium" id="priority_medium" 
+                        <input type="radio" name="priority" value="medium" id="priority_medium"
                                {{ old('priority', $task->priority) == 'medium' ? 'checked' : '' }} class="d-none">
                         <label for="priority_medium" class="priority-btn priority-medium">
                             <i class="bi bi-flag me-1"></i>Trung bình
                         </label>
 
-                        <input type="radio" name="priority" value="high" id="priority_high" 
+                        <input type="radio" name="priority" value="high" id="priority_high"
                                {{ old('priority', $task->priority) == 'high' ? 'checked' : '' }} class="d-none">
                         <label for="priority_high" class="priority-btn priority-high">
                             <i class="bi bi-flag me-1"></i>Cao
@@ -611,8 +611,8 @@ input[type="datetime-local"]::-webkit-outer-spin-button {
                     <label for="rejection_reason" class="form-label">
                         <i class="bi bi-exclamation-triangle me-1"></i>Lý do từ chối <span class="text-danger">*</span>
                     </label>
-                    <textarea name="rejection_reason" id="rejection_reason" rows="3" 
-                              class="form-control @error('rejection_reason') is-invalid @enderror" 
+                    <textarea name="rejection_reason" id="rejection_reason" rows="3"
+                              class="form-control @error('rejection_reason') is-invalid @enderror"
                               placeholder="Nhập lý do từ chối công việc..." maxlength="500">{{ old('rejection_reason', $task->rejection_reason) }}</textarea>
                     <div class="d-flex justify-content-between align-items-center mt-1">
                         <small class="text-muted">Tối đa 500 ký tự</small>
@@ -701,7 +701,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 multiUserSection.classList.remove('d-none');
                 // Clear single user selection
                 document.getElementById('assignee_id').value = '';
-            } else {
+        } else {
                 singleUserSection.classList.remove('d-none');
                 multiUserSection.classList.add('d-none');
                 // Clear multi user selections
@@ -836,7 +836,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 userItem.style.display = 'none';
                 // Bỏ chọn checkbox nếu đang ẩn
                 if (checkbox.checked) {
-                    checkbox.checked = false;
+            checkbox.checked = false;
                     updateSelectedText('user');
                 }
             }
@@ -889,7 +889,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     updateSelectedText('department');
                 }
             }
-        } else {
+            } else {
             // Khi bỏ chọn user, kiểm tra xem có cần bỏ tick phòng ban không
             if (departmentId) {
                 const deptCheckbox = document.querySelector(`#dept_${departmentId}`);
@@ -942,21 +942,21 @@ function validateTextarea(textareaId, counterId, maxLength) {
                 this.style.borderColor = '#dc3545';
                 this.style.backgroundColor = '#fff5f5';
                 if (submitBtn) {
-                    submitBtn.disabled = true;
-                    submitBtn.innerHTML = '<i class="bi bi-exclamation-triangle me-2"></i>Từ quá dài (>45 ký tự)';
-                    submitBtn.classList.remove('btn-submit');
-                    submitBtn.classList.add('btn-danger');
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="bi bi-exclamation-triangle me-2"></i>Từ quá dài (>45 ký tự)';
+            submitBtn.classList.remove('btn-submit');
+            submitBtn.classList.add('btn-danger');
                 }
-            } else {
+        } else {
                 this.style.borderColor = '';
                 this.style.backgroundColor = '';
                 if (submitBtn) {
-                    submitBtn.disabled = false;
-                    submitBtn.innerHTML = '<i class="bi bi-check-circle me-2"></i>Cập nhật công việc';
-                    submitBtn.classList.remove('btn-danger');
-                    submitBtn.classList.add('btn-submit');
-                }
-            }
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="bi bi-check-circle me-2"></i>Cập nhật công việc';
+            submitBtn.classList.remove('btn-danger');
+            submitBtn.classList.add('btn-submit');
+        }
+    }
         });
         
         // Form validation
@@ -966,10 +966,10 @@ function validateTextarea(textareaId, counterId, maxLength) {
             
             for (let word of words) {
                 if (word.length > 45) {
-                    e.preventDefault();
-                    alert('Không được phép nhập từ dài hơn 45 ký tự!');
-                    return false;
-                }
+            e.preventDefault();
+            alert('Không được phép nhập từ dài hơn 45 ký tự!');
+            return false;
+        }
             }
         });
         

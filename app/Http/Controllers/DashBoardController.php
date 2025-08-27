@@ -142,9 +142,9 @@ class DashboardController extends Controller
             
         } elseif ($user->isManager()) {
             // Manager: Lấy multi-department tasks có phòng ban tham gia
-            $managerMultiDepartmentTasks = Task::with(['assignedUsers', 'creator'])
+            $managerMultiDepartmentTasks = Task::with(['assignees.department', 'departments', 'creator'])
                 ->where('is_multi_department', true)
-                ->whereHas('assignedUsers', function($q) use ($user) {
+                ->whereHas('assignees', function($q) use ($user) {
                     $q->where('department_id', $user->department_id);
                 });
             
@@ -183,10 +183,10 @@ class DashboardController extends Controller
             
             // Manager: Lấy tasks thuộc phòng ban (không phải multi-department)
             $managerDepartment = $user->department;
-            $managerDepartmentTasks = Task::with(['assignedUsers','creator'])
+            $managerDepartmentTasks = Task::with(['assignees.department','departments','creator'])
                 ->where('is_multi_department', false)
                 ->where(function($q) use ($user) {
-                    $q->whereHas('assignedUsers', function($subQ) use ($user) {
+                    $q->whereHas('assignees', function($subQ) use ($user) {
                         $subQ->where('department_id', $user->department_id);
                     })
                     ->orWhereHas('creator', function($subQ) use ($user) {
@@ -208,9 +208,9 @@ class DashboardController extends Controller
             $managerDepartmentTasks = $managerDepartmentTasks->get();
             
             // Query cho bảng Employee-style (fallback)
-            $query = Task::with(['assignedUsers','creator'])
+            $query = Task::with(['assignees.department','departments','creator'])
                         ->where(function($q) use ($user) {
-                            $q->whereHas('assignedUsers', function($subQ) use ($user) {
+                            $q->whereHas('assignees', function($subQ) use ($user) {
                                 $subQ->where('department_id', $user->department_id);
                             })
                             ->orWhereHas('creator', function($subQ) use ($user) {
@@ -219,19 +219,19 @@ class DashboardController extends Controller
                         });
             
             $stats = [
-                'doing'   => Task::whereHas('assignedUsers', function($q) use ($user) {
+                'doing'   => Task::whereHas('assignees', function($q) use ($user) {
                                 $q->where('department_id', $user->department_id);
                             })->where('status','in_progress')->count(),
-                'completed' => Task::whereHas('assignedUsers', function($q) use ($user) {
+                'completed' => Task::whereHas('assignees', function($q) use ($user) {
                                 $q->where('department_id', $user->department_id);
                             })->where('status','completed')->count(),
-                'rejected' => Task::whereHas('assignedUsers', function($q) use ($user) {
+                'rejected' => Task::whereHas('assignees', function($q) use ($user) {
                                 $q->where('department_id', $user->department_id);
                             })->where('status','rejected')->count(),
-                'overdue' => Task::whereHas('assignedUsers', function($q) use ($user) {
+                'overdue' => Task::whereHas('assignees', function($q) use ($user) {
                                 $q->where('department_id', $user->department_id);
                             })->where('status','overdue')->count(),
-                'finished' => Task::whereHas('assignedUsers', function($q) use ($user) {
+                'finished' => Task::whereHas('assignees', function($q) use ($user) {
                                 $q->where('department_id', $user->department_id);
                             })->where('status','finished')->count(),
             ];

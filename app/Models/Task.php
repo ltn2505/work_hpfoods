@@ -36,6 +36,7 @@ class Task extends Model
         'last_reset_date' => 'date',
         'completed_at' => 'datetime',
         'is_multi_department' => 'boolean',
+        'is_recurring' => 'boolean',
     ];
 
     // Relationships

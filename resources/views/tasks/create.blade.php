@@ -168,6 +168,9 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator {
   <div class="card shadow-sm border-0">
     <div class="card-body p-4">
       <form action="{{ route('tasks.store') }}" method="POST" enctype="multipart/form-data" id="createTaskForm">
+            {{-- Hidden fields for multi-user and multi-department --}}
+            <input type="hidden" name="is_multi_user" id="is_multi_user" value="0">
+            <input type="hidden" name="is_multi_department" id="is_multi_department" value="0">
         @csrf
         <div class="row g-4">
           {{-- Cột bên trái --}}
@@ -234,7 +237,7 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator {
                   <div class="dropdown-content" id="departmentDropdownContent">
                     @foreach($departments as $dept)
                       <div class="dropdown-item" data-value="{{ $dept->id }}" data-count="{{ $dept->users->count() }}">
-                        <input type="checkbox" class="dept-checkbox" value="{{ $dept->id }}" id="dept_{{ $dept->id }}">
+                        <input type="checkbox" class="dept-checkbox" name="department_ids[]" value="{{ $dept->id }}" id="dept_{{ $dept->id }}">
                         <label for="dept_{{ $dept->id }}">
                           {{ $dept->name }} <span class="badge bg-secondary ms-1">{{ $dept->users->count() }}</span>
                         </label>
@@ -654,8 +657,10 @@ document.addEventListener('DOMContentLoaded', function() {
         if (checkedDepts.length === 0) {
             dropdownText.textContent = 'Chọn phòng ban...';
         } else if (checkedDepts.length === 1) {
-            const label = checkedDepts[0].nextElementSibling.textContent;
-            dropdownText.textContent = label;
+            const label = checkedDepts[0].nextElementSibling;
+            // Lấy chỉ tên phòng ban, bỏ qua badge số lượng
+            const deptName = label.childNodes[0].textContent.trim();
+            dropdownText.textContent = deptName;
         } else {
             dropdownText.textContent = `Đã chọn ${checkedDepts.length} phòng ban`;
         }
@@ -664,12 +669,29 @@ document.addEventListener('DOMContentLoaded', function() {
     // Department checkbox change handler
     document.querySelectorAll('.dept-checkbox').forEach(checkbox => {
         checkbox.addEventListener('change', updateDepartmentDropdownText);
+        checkbox.addEventListener('change', updateMultiDepartmentFlag);
     });
+
+    // Update multi-department flag
+    function updateMultiDepartmentFlag() {
+        const checkedDepts = document.querySelectorAll('.dept-checkbox:checked');
+        const isMultiDept = checkedDepts.length > 1;
+        document.getElementById('is_multi_department').value = isMultiDept ? '1' : '0';
+    }
+
+    // Update multi-user flag
+    function updateMultiUserFlag() {
+        const checkedUsers = document.querySelectorAll('.user-checkbox:checked');
+        const isMultiUser = checkedUsers.length > 1;
+        document.getElementById('is_multi_user').value = isMultiUser ? '1' : '0';
+    }
 
     // Confirm departments selection
     confirmDepartmentsBtn.addEventListener('click', function() {
         const selectedDepts = Array.from(document.querySelectorAll('.dept-checkbox:checked'))
             .map(checkbox => checkbox.value);
+        
+        console.log('Selected departments:', selectedDepts);
         
         if (selectedDepts.length === 0) {
             alert('Vui lòng chọn ít nhất một phòng ban!');
@@ -686,17 +708,21 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Filter users by selected departments
         const userGroups = document.querySelectorAll('.dropdown-group');
+        console.log('Total user groups:', userGroups.length);
         
         // Hide all groups first
         userGroups.forEach(group => {
             group.style.display = 'none';
+            console.log('Hiding group:', group.dataset.department);
         });
         
         // Show only selected departments
         selectedDepts.forEach(deptId => {
             const group = document.querySelector(`[data-department="${deptId}"]`);
+            console.log('Looking for department:', deptId, 'Found group:', group);
             if (group) {
                 group.style.display = 'block';
+                console.log('Showing group for department:', deptId);
             }
         });
         
@@ -780,6 +806,7 @@ document.addEventListener('DOMContentLoaded', function() {
     document.addEventListener('change', function(e) {
         if (e.target.classList.contains('user-checkbox')) {
             updateUserDropdownText();
+            updateMultiUserFlag();
         }
     });
 

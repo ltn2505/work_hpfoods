@@ -64,35 +64,75 @@ class TaskController extends Controller
             'is_recurring' => 'nullable|boolean',
         ]);
 
+        // Debug: Log dữ liệu gửi từ form
+        \Log::info('Task creation data:', [
+            'user_id' => $user->id,
+            'user_name' => $user->name,
+            'user_role' => $user->role,
+            'user_department_id' => $user->department_id,
+            'assignee_ids' => $r->input('assignee_ids'),
+            'department_ids' => $r->input('department_ids'),
+            'is_multi_user' => $r->input('is_multi_user'),
+            'is_multi_department' => $r->input('is_multi_department'),
+        ]);
+
         // Kiểm tra quyền theo phòng ban
         if ($user->isManager()) {
+            \Log::info('Checking manager permissions:', [
+                'user_id' => $user->id,
+                'user_department_id' => $user->department_id,
+                'is_manager' => $user->isManager(),
+            ]);
+            
+            // Kiểm tra xem user có phòng ban không
+            if (!$user->department_id) {
+                \Log::error('Manager has no department assigned');
+                abort(403, 'Bạn chưa được gán phòng ban. Vui lòng liên hệ admin để được gán phòng ban.');
+            }
+            
             // Kiểm tra assignee_id (single user)
-            if ($data['assignee_id']) {
+            if (isset($data['assignee_id']) && $data['assignee_id']) {
                 $assignee = User::find($data['assignee_id']);
-                if ($assignee && $assignee->department_id !== $user->department_id) {
+                \Log::info('Checking single assignee:', [
+                    'assignee_id' => $data['assignee_id'],
+                    'assignee_department_id' => $assignee ? $assignee->department_id : null,
+                    'assignee_dept_type' => $assignee ? gettype($assignee->department_id) : null,
+                    'user_department_id' => $user->department_id,
+                    'user_dept_type' => gettype($user->department_id),
+                    'comparison' => $assignee ? ((int)$assignee->department_id !== (int)$user->department_id) : false,
+                ]);
+                if ($assignee && (int)$assignee->department_id !== (int)$user->department_id) {
                     abort(403, 'Bạn chỉ có thể giao việc cho nhân viên cùng phòng ban.');
                 }
             }
             
             // Kiểm tra assignee_ids (multi-user)
-            if ($data['assignee_ids']) {
+            if (isset($data['assignee_ids']) && $data['assignee_ids']) {
                 foreach ($data['assignee_ids'] as $assigneeId) {
                     $assignee = User::find($assigneeId);
-                    if ($assignee && $assignee->department_id !== $user->department_id) {
+                    \Log::info('Checking multi assignee:', [
+                        'assignee_id' => $assigneeId,
+                        'assignee_department_id' => $assignee ? $assignee->department_id : null,
+                        'assignee_dept_type' => $assignee ? gettype($assignee->department_id) : null,
+                        'user_department_id' => $user->department_id,
+                        'user_dept_type' => gettype($user->department_id),
+                        'comparison' => $assignee ? ((int)$assignee->department_id !== (int)$user->department_id) : false,
+                    ]);
+                    if ($assignee && (int)$assignee->department_id !== (int)$user->department_id) {
                         abort(403, 'Bạn chỉ có thể giao việc cho nhân viên cùng phòng ban.');
                     }
                 }
             }
             
             // Kiểm tra department_id (single department)
-            if ($data['department_id'] && $data['department_id'] !== $user->department_id) {
+            if (isset($data['department_id']) && $data['department_id'] && (int)$data['department_id'] !== (int)$user->department_id) {
                 abort(403, 'Bạn chỉ có thể giao việc cho phòng ban của mình.');
             }
             
             // Kiểm tra department_ids (multi-department)
-            if ($data['department_ids']) {
+            if (isset($data['department_ids']) && $data['department_ids']) {
                 foreach ($data['department_ids'] as $deptId) {
-                    if ($deptId !== $user->department_id) {
+                    if ((int)$deptId !== (int)$user->department_id) {
                         abort(403, 'Bạn chỉ có thể giao việc cho phòng ban của mình.');
                     }
                 }
@@ -160,7 +200,19 @@ class TaskController extends Controller
             $data['department_id'] = null; // Không set department_id chính nếu là multi-department
         } else {
             $data['is_multi_department'] = false;
+            // Nếu là single department, set department_id từ department_ids đầu tiên
+            if ($r->has('department_ids') && is_array($r->department_ids) && count($r->department_ids) > 0) {
+                $data['department_id'] = $r->department_ids[0];
+            }
         }
+        
+        // Debug: Log department processing
+        \Log::info('Department processing:', [
+            'is_multi_department' => $r->boolean('is_multi_department'),
+            'department_ids' => $r->input('department_ids'),
+            'final_department_id' => $data['department_id'] ?? null,
+            'final_is_multi_department' => $data['is_multi_department'],
+        ]);
 
         $task = Task::create($data);
 
@@ -175,8 +227,12 @@ class TaskController extends Controller
             $task->assignees()->attach($r->assignee_id);
         }
 
-        // Xử lý multi-department assignments
-        if ($r->boolean('is_multi_department') && $r->has('department_ids')) {
+        // Xử lý department assignments (cả single và multi)
+        if ($r->has('department_ids') && is_array($r->department_ids)) {
+            \Log::info('Attaching departments to task:', [
+                'task_id' => $task->id,
+                'department_ids' => $r->department_ids,
+            ]);
             foreach ($r->department_ids as $departmentId) {
                 $task->departments()->attach($departmentId);
             }
@@ -213,6 +269,17 @@ class TaskController extends Controller
         $task->load(['activities' => function($query) {
             $query->orderBy('created_at', 'desc');
         }, 'activities.user']);
+        
+        // Debug: Log task data for troubleshooting
+        \Log::info('Task detail data:', [
+            'task_id' => $task->id,
+            'task_title' => $task->title,
+            'department_id' => $task->department_id,
+            'is_multi_department' => $task->is_multi_department,
+            'departments_count' => $task->departments->count(),
+            'departments' => $task->departments->pluck('name')->toArray(),
+        ]);
+        
         return view('tasks.show', compact('task'));
     }
 
@@ -405,10 +472,25 @@ class TaskController extends Controller
         }
         $data['attachments'] = $attachments;
 
-
-
-
-
+        // Xử lý recurring task
+        if ($request->boolean('is_recurring') && $request->filled('deadline')) {
+            $data['is_recurring'] = true;
+            $data['recurring_start_date'] = $request->input('deadline');
+            
+            // Tính recurring_days từ deadline gốc
+            $deadline = \Carbon\Carbon::parse($request->input('deadline'));
+            $today = now();
+            $data['recurring_days'] = $deadline->diffInDays($today);
+            
+            // Đảm bảo recurring_days ít nhất là 1
+            if ($data['recurring_days'] < 1) {
+                $data['recurring_days'] = 1;
+            }
+        } else {
+            $data['is_recurring'] = false;
+            $data['recurring_start_date'] = null;
+            $data['recurring_days'] = null;
+        }
 
         $task->update($data);
 
