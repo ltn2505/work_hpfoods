@@ -626,7 +626,14 @@
                 @endphp
                 <tr class="border-bottom">
                   <td class="px-4 py-3">
-                    <div class="fw-medium text-dark">{{ $task->title }}</div>
+                    <div class="fw-medium text-dark task-title" 
+                         data-bs-toggle="tooltip" 
+                         data-bs-placement="top"
+                         data-bs-html="true"
+                         title="{{ $task->title }}"
+                         style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                      {{ $task->title }}
+                    </div>
                     @if($task->description)
                       <small class="text-muted">{{ Str::limit($task->description, 50) }}</small>
                     @endif
@@ -737,7 +744,7 @@
                       </span>
                     @endif
                   </td>
-                  <td class="px-4 py-3 text-end">
+                  <td class="px-4 py-3 text-end" style="white-space: nowrap;">
                     <a href="{{ route('task-detail',$task) }}" class="btn btn-sm btn-outline-info">👁 Xem</a>
                     @if(auth()->user()->isAdmin() || auth()->user()->isManager())
                       <a href="{{ route('tasks.edit',$task) }}" class="btn btn-sm btn-outline-warning">✏️ Sửa</a>
@@ -820,7 +827,14 @@
                 @endphp
                 <tr class="border-bottom">
                   <td class="px-4 py-3">
-                    <div class="fw-medium text-dark">{{ $task->title }}</div>
+                    <div class="fw-medium text-dark task-title" 
+                         data-bs-toggle="tooltip" 
+                         data-bs-placement="top"
+                         data-bs-html="true"
+                         title="{{ $task->title }}"
+                         style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                      {{ $task->title }}
+                    </div>
                     @if($task->description)
                       <small class="text-muted">{{ Str::limit($task->description, 50) }}</small>
                     @endif
@@ -920,7 +934,7 @@
                       </span>
                     @endif
                   </td>
-                  <td class="px-4 py-3 text-end">
+                  <td class="px-4 py-3 text-end" style="white-space: nowrap;">
                     <a href="{{ route('task-detail',$task) }}" class="btn btn-sm btn-outline-info">👁 Xem</a>
                     <a href="{{ route('tasks.updateStatus',$task) }}" class="btn btn-sm btn-outline-primary">🔄 Cập nhật</a>
                   </td>
@@ -1042,12 +1056,14 @@ document.addEventListener('DOMContentLoaded', function() {
     // Initialize hover fix
     initializeTaskRowHoverFix();
     
-    // Initialize tooltips for assignee badges
+    // Initialize tooltips for assignee badges and task titles
     var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
     var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
         return new bootstrap.Tooltip(tooltipTriggerEl, {
             placement: 'top',
-            trigger: 'hover click'
+            trigger: 'hover',
+            html: true,
+            delay: { show: 300, hide: 100 }
         });
     });
     
@@ -1102,6 +1118,35 @@ document.addEventListener('DOMContentLoaded', function() {
 .card.text-center:hover {
     transform: translateY(-2px);
     box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+}
+
+/* Task title styling */
+.task-title {
+    cursor: help;
+    transition: all 0.2s ease;
+}
+
+.task-title:hover {
+    color: #558EC1 !important;
+    text-decoration: underline;
+}
+
+/* Action buttons styling - ensure they're always visible */
+.table td.text-end {
+    min-width: 200px;
+    white-space: nowrap;
+}
+
+.table td.text-end .btn {
+    margin-left: 2px;
+    margin-right: 2px;
+}
+
+/* Ensure action column doesn't get truncated */
+.table th:last-child,
+.table td:last-child {
+    min-width: 180px;
+    max-width: none;
 }
 
 /* Bảng thống nhất styling */
