@@ -858,6 +858,8 @@ class TaskController extends Controller
         // Set completed_at khi status = 'completed'
         if ($status === 'completed') {
             $updateData['completed_at'] = now();
+            // Xóa rejection_reason khi task được submit lại
+            $updateData['rejection_reason'] = null;
         }
         
         $task->update($updateData);
@@ -865,7 +867,7 @@ class TaskController extends Controller
         // Tạo activity log với thông tin chi tiết
         $statusMessages = [
             'in_progress' => 'Đã giao việc',
-            'completed' => 'Đã hoàn thành và gửi duyệt',
+            'completed' => $task->status === 'rejected' ? 'Đã hoàn thành và gửi duyệt lại' : 'Đã hoàn thành và gửi duyệt',
             'rejected' => 'Đã từ chối' . ($rejectionReason ? ': ' . $rejectionReason : ''),
             'overdue' => 'Đã trễ hạn',
             'finished' => 'Đã kết thúc' . ($finishNote ? ': ' . $finishNote : '')

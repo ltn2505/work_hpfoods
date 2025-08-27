@@ -227,12 +227,24 @@
         <hr class="my-3">
       @endif
       
-      {{-- Nút kết thúc (Employee) --}}
-      @if($task->status === 'in_progress')
-        <a href="{{ route('tasks.updateStatus',[$task,'status'=>'completed']) }}" class="btn btn-success w-100 mb-2">✅ Kết thúc</a>
+      {{-- Nút cho Assignee/Employee --}}
+      @php
+        $isAssignee = $task->assignee_id === auth()->id() || 
+                     $task->assignees->contains('id', auth()->id()) ||
+                     $task->creator_id === auth()->id();
+      @endphp
+      
+      {{-- Nút hoàn thành & gửi duyệt (cho assignee khi task in_progress) --}}
+      @if($task->status === 'in_progress' && $isAssignee && !auth()->user()->isAdmin() && !auth()->user()->isManager())
+        <a href="{{ route('tasks.updateStatus',[$task,'status'=>'completed']) }}" class="btn btn-success w-100 mb-2">✅ Hoàn thành & gửi duyệt</a>
       @endif
       
-      {{-- Nút từ chối (chỉ Admin/Manager) --}}
+      {{-- Nút hoàn thành & gửi duyệt lại (cho assignee khi task bị từ chối) --}}
+      @if($task->status === 'rejected' && $isAssignee && !auth()->user()->isAdmin() && !auth()->user()->isManager())
+        <a href="{{ route('tasks.updateStatus',[$task,'status'=>'completed']) }}" class="btn btn-success w-100 mb-2">✅ Hoàn thành & gửi duyệt lại</a>
+      @endif
+      
+      {{-- Nút từ chối (chỉ Admin/Manager khi task in_progress) --}}
       @if($task->status === 'in_progress' && (auth()->user()->isAdmin() || auth()->user()->isManager()))
         <a href="{{ route('tasks.updateStatus',[$task,'status'=>'rejected']) }}" class="btn btn-danger w-100 mb-2">✖ Từ chối</a>
       @endif
