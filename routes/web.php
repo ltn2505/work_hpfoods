@@ -70,6 +70,16 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/tasks/{task}/comment', [TaskController::class, 'comment'])->name('tasks.comment');
     });
 
+    // Task Follower routes (chỉ Admin và Manager)
+    Route::middleware('role:admin,manager')->group(function () {
+        Route::post('/tasks/{task}/followers', [\App\Http\Controllers\TaskFollowerController::class, 'addFollower'])->name('tasks.followers.add');
+        Route::delete('/tasks/{task}/followers', [\App\Http\Controllers\TaskFollowerController::class, 'removeFollower'])->name('tasks.followers.remove');
+        Route::get('/tasks/{task}/followers/available', [\App\Http\Controllers\TaskFollowerController::class, 'getAvailableFollowers'])->name('tasks.followers.available');
+    });
+
+    // Lấy danh sách followers hiện tại (cho tất cả role có quyền xem task)
+    Route::get('/tasks/{task}/followers', [\App\Http\Controllers\TaskFollowerController::class, 'getCurrentFollowers'])->name('tasks.followers.current');
+
     // Báo cáo tổng quan (thường cho manager & admin)
     Route::middleware('role:admin,manager')->group(function () {
         Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');

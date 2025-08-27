@@ -298,6 +298,14 @@
                         Đang làm
                     @elseif($task->status == 'completed')
                         Chờ duyệt
+                </div>
+                <div class="col-md-6 mb-2"><i class="bi bi-eye me-1"></i> <strong>Task Followers:</strong> 
+                    @if($task->followers->count() > 0)
+                        {{ $task->followers->count() }} người: {{ $task->followers->pluck('name')->join(', ') }}
+                    @else
+                        Chưa có người theo dõi
+                    @endif
+                </div>
                     @elseif($task->status == 'rejected')
                         Từ chối
                     @elseif($task->status == 'overdue')

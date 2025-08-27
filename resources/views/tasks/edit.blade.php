@@ -352,6 +352,27 @@ input[type="datetime-local"]::-webkit-outer-spin-button {
 .form-group:has(input[type="datetime-local"]) input[type="datetime-local"] {
     z-index: 1002 !important;
 }
+
+/* Ensure dropdowns are clickable */
+.dropdown-toggle {
+    z-index: 1003 !important;
+    position: relative;
+}
+
+.dropdown-menu {
+    z-index: 1004 !important;
+}
+
+/* Fix for disabled dropdowns */
+.dropdown-toggle:not([disabled]) {
+    cursor: pointer !important;
+    pointer-events: auto !important;
+}
+
+.dropdown-toggle[disabled] {
+    cursor: not-allowed !important;
+    opacity: 0.6;
+}
 </style>
 @endpush
 
@@ -601,6 +622,75 @@ input[type="datetime-local"]::-webkit-outer-spin-button {
                     </div>
                 </div>
 
+                {{-- Task Followers --}}
+                <div class="form-group">
+                    <label class="form-label">
+                        <i class="bi bi-eye me-1"></i>Task Followers
+                    </label>
+                    <div class="form-text text-info mb-2">
+                        <i class="bi bi-info-circle me-1"></i>
+                        Những người này sẽ theo dõi tiến trình công việc và có thể tham gia thảo luận
+                    </div>
+                    
+                    <div class="custom-dropdown">
+                        <div class="dropdown-toggle" id="follower_dropdown_toggle">
+                            <span class="selected-text">Chọn Task Followers...</span>
+                            <i class="bi bi-chevron-down"></i>
+                        </div>
+                        <div class="dropdown-menu" id="follower_dropdown_menu">
+                            @foreach($users as $user)
+                                @if($user && ($user->role === 'manager' || $user->role === 'employee'))
+                                    @php
+                                        $isCurrentFollower = $task->followers->contains('id', $user->id);
+                                        $isCurrentAssignee = $task->assignee_id === $user->id || 
+                                                           $task->creator_id === $user->id ||
+                                                           $task->assignees->contains('id', $user->id);
+                                        $isManager = $user->role === 'manager';
+                                        $canSelect = !$isCurrentAssignee && (!$isManager || auth()->user()->isAdmin());
+                                    @endphp
+                                    <div class="dropdown-item follower-item {{ !$canSelect ? 'inactive-user' : '' }}" 
+                                         data-user-id="{{ $user->id }}" 
+                                         data-department-id="{{ $user->department_id ?? '' }}"
+                                         data-role="{{ $user->role }}">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" name="follower_ids[]" 
+                                                   value="{{ $user->id }}" id="follower_{{ $user->id }}"
+                                                   {{ $isCurrentFollower ? 'checked' : '' }}
+                                                   {{ !$canSelect ? 'disabled' : '' }}>
+                                            <label class="form-check-label {{ !$canSelect ? 'text-muted' : '' }}" for="follower_{{ $user->id }}" data-original-text="{{ $user->name ?? 'Không có tên' }} @if($user->department) <span class=&quot;badge bg-secondary&quot;>{{ $user->department->name }}</span> @endif @if($isManager) <span class=&quot;badge bg-warning&quot;>Manager</span> @endif @if($isCurrentFollower) <span class=&quot;badge bg-info&quot;>Đang theo dõi</span> @endif @if($isCurrentAssignee) <span class=&quot;badge bg-primary&quot;>Đã giao việc</span> @endif">
+                                                {{ $user->name ?? 'Không có tên' }} 
+                                                @if($user->department) 
+                                                    <span class="badge bg-secondary">{{ $user->department->name }}</span>
+                                                @endif
+                                                @if($isManager)
+                                                    <span class="badge bg-warning">Manager</span>
+                                                @endif
+                                                @if($isCurrentFollower)
+                                                    <span class="badge bg-info">Đang theo dõi</span>
+                                                @endif
+                                                @if($isCurrentAssignee)
+                                                    <span class="badge bg-primary">Đã giao việc</span>
+                                                @endif
+                                            </label>
+                                        </div>
+                                    </div>
+                                @endif
+                            @endforeach
+                        </div>
+                    </div>
+                    
+                    <div class="form-text text-warning">
+                        <i class="bi bi-exclamation-triangle me-1"></i>
+                        <strong>Lưu ý:</strong> 
+                        @if(auth()->user()->isManager())
+                            Bạn không thể thêm Manager khác làm Task Follower. Chỉ có thể thêm Employee.
+                        @else
+                            Có thể thêm cả Manager và Employee làm Task Follower.
+                        @endif
+                        Không thể thêm người đã được giao việc hoặc người tạo việc làm Task Follower.
+                    </div>
+                </div>
+
                 {{-- Deadline --}}
                 <div class="form-group">
                     <label for="deadline" class="form-label">
@@ -712,6 +802,21 @@ document.addEventListener('DOMContentLoaded', function() {
         this.classList.add('dragover');
     });
 
+    dropZone.addEventListener('dragleave', function(e) {
+        e.preventDefault();
+        this.classList.remove('dragover');
+    });
+
+    dropZone.addEventListener('drop', function(e) {
+        e.preventDefault();
+        this.classList.remove('dragover');
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+            fileInput.files = files;
+            handleFileSelect(fileInput);
+        }
+    });
+
     // Status change handler
     const statusSelect = document.getElementById('status');
     const rejectionReasonGroup = document.getElementById('rejection_reason_group');
@@ -724,13 +829,10 @@ document.addEventListener('DOMContentLoaded', function() {
     statusSelect.addEventListener('change', function() {
         if (this.value === 'rejected') {
             rejectionReasonGroup.style.display = 'block';
-            // Make rejection reason required when status is rejected
             document.getElementById('rejection_reason').required = true;
         } else {
             rejectionReasonGroup.style.display = 'none';
-            // Remove required when status is not rejected
             document.getElementById('rejection_reason').required = false;
-            // Clear rejection reason when status is not rejected
             document.getElementById('rejection_reason').value = '';
         }
     });
@@ -738,6 +840,19 @@ document.addEventListener('DOMContentLoaded', function() {
     // Validation for long words
     validateTextarea('description', 'descriptionCounter', 1000);
     validateTextarea('rejection_reason', 'rejectionReasonCounter', 500);
+
+    // Initialize dropdowns
+    initDropdown('department_dropdown_toggle', 'department_dropdown_menu');
+    initDropdown('user_dropdown_toggle', 'user_dropdown_menu');
+    initDropdown('follower_dropdown_toggle', 'follower_dropdown_menu');
+    
+    // Set initial selected text
+    updateSelectedText('department');
+    updateSelectedText('user');
+    updateSelectedText('follower');
+    
+    // Handle initial department change
+    handleDepartmentChange();
 
     // Multi-user and multi-department toggle
     const multiUserCheckbox = document.getElementById('is_multi_user');
@@ -750,16 +865,19 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Multi-user toggle
     if (multiUserCheckbox) {
-        multiUserCheckbox.addEventListener('change', function() {
+        multiUserCheckbox.addEventListener('change', function(e) {
+            e.stopPropagation();
+            
             if (this.checked) {
                 singleUserSection.classList.add('d-none');
                 multiUserSection.classList.remove('d-none');
-                // Clear single user selection
-                document.getElementById('assignee_id').value = '';
-        } else {
+                const singleUserSelect = document.getElementById('assignee_id');
+                if (singleUserSelect) {
+                    singleUserSelect.value = '';
+                }
+            } else {
                 singleUserSection.classList.remove('d-none');
                 multiUserSection.classList.add('d-none');
-                // Clear multi user selections
                 const checkboxes = multiUserSection.querySelectorAll('input[type="checkbox"]');
                 checkboxes.forEach(cb => cb.checked = false);
                 updateSelectedText('user');
@@ -769,257 +887,199 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Multi-department toggle
     if (multiDepartmentCheckbox) {
-        multiDepartmentCheckbox.addEventListener('change', function() {
+        multiDepartmentCheckbox.addEventListener('change', function(e) {
+            e.stopPropagation();
+            
             if (this.checked) {
                 singleDepartmentSection.classList.add('d-none');
                 multiDepartmentSection.classList.remove('d-none');
-                // Clear single department selection
-                document.getElementById('department_id').value = '';
+                const singleDeptSelect = document.getElementById('department_id');
+                if (singleDeptSelect) {
+                    singleDeptSelect.value = '';
+                }
             } else {
                 singleDepartmentSection.classList.remove('d-none');
                 multiDepartmentSection.classList.add('d-none');
-                // Clear multi department selections
                 const checkboxes = multiDepartmentSection.querySelectorAll('input[type="checkbox"]');
                 checkboxes.forEach(cb => cb.checked = false);
                 updateSelectedText('department');
             }
         });
     }
+});
 
-    // Custom dropdown functionality
-    function initDropdowns() {
-        // Department dropdown
-        const deptToggle = document.getElementById('department_dropdown_toggle');
-        const deptMenu = document.getElementById('department_dropdown_menu');
-        
-        if (deptToggle && deptMenu) {
-            deptToggle.addEventListener('click', function(e) {
-                e.stopPropagation();
-                deptToggle.classList.toggle('active');
-                deptMenu.classList.toggle('show');
-            });
-
-            // Update selected text when checkboxes change
-            const deptCheckboxes = deptMenu.querySelectorAll('input[type="checkbox"]');
-            deptCheckboxes.forEach(cb => {
-                cb.addEventListener('change', () => {
-                    updateSelectedText('department');
-                    filterUsersByDepartments();
-                });
-            });
-        }
-
-        // User dropdown
-        const userToggle = document.getElementById('user_dropdown_toggle');
-        const userMenu = document.getElementById('user_dropdown_menu');
-        
-        if (userToggle && userMenu) {
-            userToggle.addEventListener('click', function(e) {
-                e.stopPropagation();
-                userToggle.classList.toggle('active');
-                userMenu.classList.toggle('show');
-            });
-
-            // Update selected text when checkboxes change
-            const userCheckboxes = userMenu.querySelectorAll('input[type="checkbox"]');
-            userCheckboxes.forEach(cb => {
-                cb.addEventListener('change', () => {
-                    updateSelectedText('user');
-                    handleUserSelectionChange(cb);
-                });
-            });
-        }
-
-        // Close dropdowns when clicking outside
-        document.addEventListener('click', function(e) {
-            if (!e.target.closest('.custom-dropdown')) {
-                document.querySelectorAll('.dropdown-toggle').forEach(toggle => {
-                    toggle.classList.remove('active');
-                });
-                document.querySelectorAll('.dropdown-menu').forEach(menu => {
-                    menu.classList.remove('show');
-                });
-            }
-        });
-    }
-
-    function updateSelectedText(type) {
-        let toggle, checkboxes, placeholder;
-        
-        if (type === 'department') {
-            toggle = document.getElementById('department_dropdown_toggle');
-            checkboxes = document.querySelectorAll('#department_dropdown_menu input[type="checkbox"]:checked');
-            placeholder = 'Chọn phòng ban...';
-        } else if (type === 'user') {
-            toggle = document.getElementById('user_dropdown_toggle');
-            checkboxes = document.querySelectorAll('#user_dropdown_menu input[type="checkbox"]:checked');
-            placeholder = 'Chọn người phụ trách...';
-        }
-
-        if (toggle && checkboxes) {
-            const selectedText = toggle.querySelector('.selected-text');
-            if (checkboxes.length === 0) {
-                selectedText.textContent = placeholder;
-            } else if (checkboxes.length === 1) {
-                const label = checkboxes[0].nextElementSibling.textContent.trim();
-                selectedText.textContent = label;
-            } else {
-                selectedText.textContent = `Đã chọn ${checkboxes.length} mục`;
-            }
-        }
-    }
-
-    // Filter users based on selected departments
-    function filterUsersByDepartments() {
-        const selectedDepartments = Array.from(document.querySelectorAll('#department_dropdown_menu input[type="checkbox"]:checked'))
-            .map(cb => cb.value);
-        
-        console.log('Selected departments:', selectedDepartments); // Debug
-        
-        const userItems = document.querySelectorAll('.user-item');
-        console.log('Total user items:', userItems.length); // Debug
-        
-        userItems.forEach(userItem => {
-            const departmentId = userItem.getAttribute('data-department-id');
-            const checkbox = userItem.querySelector('input[type="checkbox"]');
+// Universal dropdown initialization function
+function initDropdown(toggleId, menuId) {
+    const toggle = document.getElementById(toggleId);
+    const menu = document.getElementById(menuId);
+    
+    if (toggle && menu) {
+        // Toggle dropdown on click
+        toggle.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
             
-            console.log('User item department:', departmentId, 'Selected:', selectedDepartments.includes(departmentId)); // Debug
+            // Close all other dropdowns first
+            closeAllDropdowns();
             
-            if (selectedDepartments.length === 0) {
-                // Nếu không chọn phòng ban nào, hiển thị tất cả
-                userItem.style.display = 'block';
-            } else if (selectedDepartments.includes(departmentId)) {
-                // Hiển thị người dùng thuộc phòng ban đã chọn
-                userItem.style.display = 'block';
-            } else {
-                // Ẩn người dùng không thuộc phòng ban đã chọn
-                userItem.style.display = 'none';
-                // Bỏ chọn checkbox nếu đang ẩn
-                if (checkbox.checked) {
-                    checkbox.checked = false;
-                    updateSelectedText('user');
-                }
-            }
+            // Toggle current dropdown
+            menu.classList.toggle('show');
         });
         
-        // Cập nhật hiển thị phòng ban nếu cần
-        updateDepartmentDisplay();
-    }
-
-    // Update department display based on user selections
-    function updateDepartmentDisplay() {
-        const selectedUsers = Array.from(document.querySelectorAll('#user_dropdown_menu input[type="checkbox"]:checked'));
-        const selectedDepartments = new Set();
-        
-        // Lấy tất cả phòng ban của user đã chọn
-        selectedUsers.forEach(userCheckbox => {
-            const userItem = userCheckbox.closest('.user-item');
-            const departmentId = userItem.getAttribute('data-department-id');
-            if (departmentId) {
-                selectedDepartments.add(departmentId);
-            }
-        });
-        
-        // Cập nhật checkbox phòng ban
-        document.querySelectorAll('#department_dropdown_menu input[type="checkbox"]').forEach(deptCheckbox => {
-            const deptId = deptCheckbox.value;
-            if (selectedDepartments.has(deptId)) {
-                if (!deptCheckbox.checked) {
-                    deptCheckbox.checked = true;
-                }
-            }
-        });
-        
-        // Cập nhật text hiển thị
-        updateSelectedText('department');
-    }
-
-    // Handle user selection change - auto-select departments
-    function handleUserSelectionChange(userCheckbox) {
-        const userId = userCheckbox.value;
-        const userItem = userCheckbox.closest('.user-item');
-        const departmentId = userItem.getAttribute('data-department-id');
-        
-        if (userCheckbox.checked) {
-            // Khi chọn user, tự động tick vào phòng ban của họ
-            if (departmentId) {
-                const deptCheckbox = document.querySelector(`#dept_${departmentId}`);
-                if (deptCheckbox && !deptCheckbox.checked) {
-                    deptCheckbox.checked = true;
+        // Handle checkbox changes
+        const checkboxes = menu.querySelectorAll('input[type="checkbox"]');
+        checkboxes.forEach(checkbox => {
+            checkbox.addEventListener('change', function(e) {
+                e.stopPropagation();
+                
+                // Update selected text based on dropdown type
+                if (menuId === 'department_dropdown_menu') {
                     updateSelectedText('department');
+                    handleDepartmentChange();
+                } else if (menuId === 'user_dropdown_menu') {
+                    updateSelectedText('user');
+                    updateFollowerOptions();
+                } else if (menuId === 'follower_dropdown_menu') {
+                    updateSelectedText('follower');
                 }
-            }
-            } else {
-            // Khi bỏ chọn user, kiểm tra xem có cần bỏ tick phòng ban không
-            if (departmentId) {
-                const deptCheckbox = document.querySelector(`#dept_${departmentId}`);
-                if (deptCheckbox) {
-                    // Kiểm tra xem còn user nào khác thuộc phòng ban này được chọn không
-                    const otherUsersInDept = document.querySelectorAll(`.user-item[data-department-id="${departmentId}"] input[type="checkbox"]:checked`);
-                    if (otherUsersInDept.length === 0) {
-                        // Nếu không còn user nào được chọn, bỏ tick phòng ban
-                        deptCheckbox.checked = false;
-                        updateSelectedText('department');
+            });
+            
+            // Prevent dropdown from closing when clicking checkbox
+            checkbox.addEventListener('click', function(e) {
+                e.stopPropagation();
+            });
+        });
+    }
+}
+
+// Close all dropdowns
+function closeAllDropdowns() {
+    const dropdowns = document.querySelectorAll('.dropdown-menu');
+    dropdowns.forEach(dropdown => {
+        dropdown.classList.remove('show');
+    });
+}
+
+// Close dropdowns when clicking outside
+document.addEventListener('click', function(e) {
+    if (!e.target.closest('.custom-dropdown')) {
+        closeAllDropdowns();
+    }
+});
+
+// Department change handler
+function handleDepartmentChange() {
+    const selectedDepartments = getSelectedDepartments();
+    const userItems = document.querySelectorAll('.user-item');
+    
+    userItems.forEach(item => {
+        const userDepartmentId = item.dataset.departmentId;
+        const userRole = item.dataset.role;
+        const checkbox = item.querySelector('input[type="checkbox"]');
+        
+        const isInSelectedDepartment = selectedDepartments.includes(parseInt(userDepartmentId));
+        
+        if (isInSelectedDepartment) {
+            checkbox.disabled = false;
+            item.style.opacity = '1';
+            
+            // Disable other managers if current user is manager
+            if (userRole === 'manager' && !isCurrentManager(item.dataset.userId)) {
+                const currentUserRole = '{{ auth()->user()->role }}';
+                if (currentUserRole === 'manager') {
+                    checkbox.disabled = true;
+                    item.style.opacity = '0.5';
+                    if (checkbox.checked) {
+                        checkbox.checked = false;
                     }
                 }
             }
+        } else {
+            checkbox.disabled = true;
+            item.style.opacity = '0.5';
+            if (checkbox.checked) {
+                checkbox.checked = false;
+            }
+        }
+    });
+    
+    updateSelectedText('user');
+    updateFollowerOptions();
+}
+
+// Update follower options based on selected users
+function updateFollowerOptions() {
+    const selectedUsers = getSelectedUsers();
+    const followerItems = document.querySelectorAll('.follower-item');
+    
+    followerItems.forEach(item => {
+        const userId = item.dataset.userId;
+        const checkbox = item.querySelector('input[type="checkbox"]');
+        
+        if (selectedUsers.includes(parseInt(userId))) {
+            checkbox.disabled = true;
+            item.style.opacity = '0.5';
+            if (checkbox.checked) {
+                checkbox.checked = false;
+            }
+        } else {
+            checkbox.disabled = false;
+            item.style.opacity = '1';
+        }
+    });
+    
+    updateSelectedText('follower');
+}
+
+// Helper functions
+function isCurrentManager(userId) {
+    const currentUserId = '{{ auth()->id() }}';
+    return userId === currentUserId;
+}
+
+function getSelectedDepartments() {
+    const checkboxes = document.querySelectorAll('input[name="department_ids[]"]:checked');
+    return Array.from(checkboxes).map(cb => parseInt(cb.value));
+}
+
+function getSelectedUsers() {
+    const checkboxes = document.querySelectorAll('input[name="assignee_ids[]"]:checked');
+    return Array.from(checkboxes).map(cb => parseInt(cb.value));
+}
+
+function updateSelectedText(type) {
+    if (type === 'department') {
+        const checkboxes = document.querySelectorAll('input[name="department_ids[]"]:checked');
+        const selectedText = document.querySelector('#department_dropdown_toggle .selected-text');
+        if (checkboxes.length === 0) {
+            selectedText.textContent = 'Chọn phòng ban...';
+        } else if (checkboxes.length === 1) {
+            const label = checkboxes[0].closest('.dropdown-item').querySelector('.form-check-label').textContent.trim();
+            selectedText.textContent = label;
+        } else {
+            selectedText.textContent = `Đã chọn ${checkboxes.length} phòng ban`;
+        }
+    } else if (type === 'user') {
+        const checkboxes = document.querySelectorAll('input[name="assignee_ids[]"]:checked');
+        const selectedText = document.querySelector('#user_dropdown_toggle .selected-text');
+        if (checkboxes.length === 0) {
+            selectedText.textContent = 'Chọn người phụ trách...';
+        } else if (checkboxes.length === 1) {
+            const label = checkboxes[0].closest('.dropdown-item').querySelector('.form-check-label').textContent.trim();
+            selectedText.textContent = label;
+        } else {
+            selectedText.textContent = `Đã chọn ${checkboxes.length} người`;
+        }
+    } else if (type === 'follower') {
+        const checkboxes = document.querySelectorAll('input[name="follower_ids[]"]:checked');
+        const selectedText = document.querySelector('#follower_dropdown_toggle .selected-text');
+        if (checkboxes.length === 0) {
+            selectedText.textContent = 'Chọn Task Followers...';
+        } else {
+            selectedText.textContent = `Đã chọn ${checkboxes.length} người`;
         }
     }
-
-    // Initialize dropdowns
-    initDropdowns();
-    
-    // Initial filter based on existing selections
-    filterUsersByDepartments();
-    
-    // Re-filter when page loads to ensure correct display
-    setTimeout(() => {
-        filterUsersByDepartments();
-        
-        // Debug: Check disabled checkboxes
-        const disabledCheckboxes = document.querySelectorAll('.form-check-input:disabled');
-        console.log('Disabled checkboxes found:', disabledCheckboxes.length);
-        disabledCheckboxes.forEach(cb => {
-            console.log('Disabled checkbox:', cb.id, 'Value:', cb.value);
-        });
-        
-        // Debug: Check inactive users
-        const inactiveUsers = document.querySelectorAll('.inactive-user');
-        console.log('Inactive users found:', inactiveUsers.length);
-        inactiveUsers.forEach(user => {
-            console.log('Inactive user:', user.getAttribute('data-user-id'));
-        });
-    }, 100);
-    
-    // Prevent interaction with disabled manager checkboxes (only for managers)
-    @if(auth()->user()->isManager())
-    document.addEventListener('click', function(e) {
-        if (e.target.classList.contains('form-check-input') && e.target.disabled) {
-            e.preventDefault();
-            e.stopPropagation();
-            return false;
-        }
-        
-        // Prevent interaction with inactive user items
-        if (e.target.closest('.inactive-user')) {
-            e.preventDefault();
-            e.stopPropagation();
-            return false;
-        }
-    });
-    @endif
-    
-    // Prevent change events on disabled checkboxes (only for managers)
-    @if(auth()->user()->isManager())
-    document.addEventListener('change', function(e) {
-        if (e.target.classList.contains('form-check-input') && e.target.disabled) {
-            e.preventDefault();
-            e.stopPropagation();
-            return false;
-        }
-    });
-    @endif
-});
+}
 
 // Function to validate textarea and prevent long words
 function validateTextarea(textareaId, counterId, maxLength) {
@@ -1050,21 +1110,21 @@ function validateTextarea(textareaId, counterId, maxLength) {
                 this.style.borderColor = '#dc3545';
                 this.style.backgroundColor = '#fff5f5';
                 if (submitBtn) {
-            submitBtn.disabled = true;
-            submitBtn.innerHTML = '<i class="bi bi-exclamation-triangle me-2"></i>Từ quá dài (>45 ký tự)';
-            submitBtn.classList.remove('btn-submit');
-            submitBtn.classList.add('btn-danger');
+                    submitBtn.disabled = true;
+                    submitBtn.innerHTML = '<i class="bi bi-exclamation-triangle me-2"></i>Từ quá dài (>45 ký tự)';
+                    submitBtn.classList.remove('btn-submit');
+                    submitBtn.classList.add('btn-danger');
                 }
-        } else {
+            } else {
                 this.style.borderColor = '';
                 this.style.backgroundColor = '';
                 if (submitBtn) {
-            submitBtn.disabled = false;
-            submitBtn.innerHTML = '<i class="bi bi-check-circle me-2"></i>Cập nhật công việc';
-            submitBtn.classList.remove('btn-danger');
-            submitBtn.classList.add('btn-submit');
-        }
-    }
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = '<i class="bi bi-check-circle me-2"></i>Cập nhật công việc';
+                    submitBtn.classList.remove('btn-danger');
+                    submitBtn.classList.add('btn-submit');
+                }
+            }
         });
         
         // Form validation
@@ -1074,10 +1134,10 @@ function validateTextarea(textareaId, counterId, maxLength) {
             
             for (let word of words) {
                 if (word.length > 45) {
-            e.preventDefault();
-            alert('Không được phép nhập từ dài hơn 45 ký tự!');
-            return false;
-        }
+                    e.preventDefault();
+                    alert('Không được phép nhập từ dài hơn 45 ký tự!');
+                    return false;
+                }
             }
         });
         

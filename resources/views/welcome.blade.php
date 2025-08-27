@@ -598,6 +598,7 @@
                 <th class="px-4 py-3 fw-semibold">Ngày giao</th>
                 <th class="px-4 py-3 fw-semibold">Deadline</th>
                 <th class="px-4 py-3 fw-semibold">Trạng thái</th>
+                <th class="px-4 py-3 fw-semibold">Followers</th>
                 <th class="px-4 py-3 fw-semibold">Loại</th>
                 <th class="px-4 py-3 fw-semibold text-end">Hành động</th>
               </tr>
@@ -719,6 +720,30 @@
                         {{ strtoupper($st) }}
                       @endif
                     </span>
+                    @if(auth()->user()->isEmployee() && $task->followers->contains('id', auth()->id()))
+                      <br><span class="badge rounded-pill px-2 py-1 fw-medium bg-info bg-opacity-10 text-info border border-info mt-1">
+                        <i class="fas fa-eye me-1"></i>Đang theo dõi
+                      </span>
+                    @endif
+                  </td>
+                  <td class="px-4 py-3">
+                    @if($task->followers->count() > 0)
+                      <span class="badge bg-info bg-opacity-10 text-info border border-info cursor-pointer" 
+                            data-bs-toggle="tooltip" 
+                            data-bs-html="true"
+                            title="@foreach($task->followers as $follower){{ $follower->name }}<br>@endforeach"
+                            style="cursor: pointer;">
+                        <i class="fas fa-eye me-1"></i>
+                        {{ $task->followers->count() }} người
+                      </span>
+                      @if($task->followers->contains('id', auth()->id()))
+                        <br><span class="badge rounded-pill px-2 py-1 fw-medium bg-success bg-opacity-10 text-success border border-success mt-1">
+                          <i class="fas fa-check me-1"></i>Đang theo dõi
+                        </span>
+                      @endif
+                    @else
+                      <span class="text-muted">—</span>
+                    @endif
                   </td>
                   <td class="px-4 py-3">
                     @if($task->is_multi_department)
@@ -799,6 +824,7 @@
                 <th class="px-4 py-3 fw-semibold">Ngày giao</th>
                 <th class="px-4 py-3 fw-semibold">Deadline</th>
                 <th class="px-4 py-3 fw-semibold">Trạng thái</th>
+                <th class="px-4 py-3 fw-semibold">Followers</th>
                 <th class="px-4 py-3 fw-semibold">Loại</th>
                 <th class="px-4 py-3 fw-semibold text-end">Hành động</th>
               </tr>
@@ -909,6 +935,30 @@
                         {{ strtoupper($st) }}
                       @endif
                     </span>
+                    @if($task->followers->contains('id', auth()->id()))
+                      <br><span class="badge rounded-pill px-2 py-1 fw-medium bg-info bg-opacity-10 text-info border border-info mt-1">
+                        <i class="fas fa-eye me-1"></i>Đang theo dõi
+                      </span>
+                    @endif
+                  </td>
+                  <td class="px-4 py-3">
+                    @if($task->followers->count() > 0)
+                      <span class="badge bg-info bg-opacity-10 text-info border border-info cursor-pointer" 
+                            data-bs-toggle="tooltip" 
+                            data-bs-html="true"
+                            title="@foreach($task->followers as $follower){{ $follower->name }}<br>@endforeach"
+                            style="cursor: pointer;">
+                        <i class="fas fa-eye me-1"></i>
+                        {{ $task->followers->count() }} người
+                      </span>
+                      @if($task->followers->contains('id', auth()->id()))
+                        <br><span class="badge rounded-pill px-2 py-1 fw-medium bg-success bg-opacity-10 text-success border border-success mt-1">
+                          <i class="fas fa-check me-1"></i>Đang theo dõi
+                        </span>
+                      @endif
+                    @else
+                      <span class="text-muted">—</span>
+                    @endif
                   </td>
                   <td class="px-4 py-3">
                     @if($task->is_multi_department)

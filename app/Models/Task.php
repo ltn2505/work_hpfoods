@@ -94,6 +94,18 @@ class Task extends Model
         return $this->hasMany(DepartmentTask::class);
     }
 
+    // Task Followers relationship
+    public function followers()
+    {
+        return $this->belongsToMany(User::class, 'task_followers', 'task_id', 'user_id')
+                    ->withTimestamps();
+    }
+
+    public function taskFollowers()
+    {
+        return $this->hasMany(TaskFollower::class);
+    }
+
     // Multi-assigned tasks (for users)
     public function multiAssignedTasks()
     {

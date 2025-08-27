@@ -60,7 +60,8 @@ class TaskController extends Controller
             'deadline'    => 'nullable|date',
             'priority'    => 'nullable|in:low,medium,high',
             'files.*'     => 'nullable|file|mimes:pdf,doc,docx,xls,xlsx,ppt,pptx,jpg,jpeg,png,gif,webp,mp4,avi,mov,wmv,flv,webm|max:51200',
-
+            'follower_ids' => 'nullable|array',
+            'follower_ids.*' => 'exists:users,id',
             'is_recurring' => 'nullable|boolean',
         ]);
 
@@ -249,6 +250,30 @@ class TaskController extends Controller
             }
         }
 
+        // Xử lý Task Followers
+        if ($r->has('follower_ids') && is_array($r->follower_ids)) {
+            foreach ($r->follower_ids as $followerId) {
+                $follower = User::find($followerId);
+                
+                // Kiểm tra quyền thêm follower
+                if ($user->isManager()) {
+                    // Manager không thể thêm manager khác làm follower
+                    if ($follower && $follower->role === 'manager') {
+                        continue; // Bỏ qua manager
+                    }
+                }
+                
+                // Kiểm tra xem user có phải là assignee hoặc creator không
+                $isAssignee = $task->assignee_id === $followerId || 
+                             $task->creator_id === $followerId ||
+                             $task->assignees->contains('id', $followerId);
+                
+                if (!$isAssignee) {
+                    $task->followers()->attach($followerId);
+                }
+            }
+        }
+
         return redirect()->route('task-detail', $task)->with('ok', 'Đã tạo công việc');
     }
 
@@ -287,20 +312,24 @@ class TaskController extends Controller
                 abort(403, 'Bạn chỉ có thể xem task của phòng ban mình hoặc task đa phòng ban có sự tham gia của phòng ban mình.');
             }
         } else {
-            // Employee có thể xem task mà họ được assign hoặc tạo
+            // Employee có thể xem task mà họ được assign, tạo hoặc đang follow
             $isAssigned = $task->assignee_id === $user->id || 
                          $task->creator_id === $user->id ||
-                         $task->assignees->contains('id', $user->id);
+                         $task->assignees->contains('id', $user->id) ||
+                         $task->followers->contains('id', $user->id);
             
             if (!$isAssigned) {
-                abort(403, 'Bạn chỉ có thể xem task mà bạn được assign hoặc tạo.');
+                abort(403, 'Bạn chỉ có thể xem task mà bạn được assign, tạo hoặc đang theo dõi.');
             }
         }
         
-        $task->load(['creator','assignee','assignees','departments','department']);
+        $task->load(['creator','assignee','assignees','departments','department','followers']);
         $task->load(['activities' => function($query) {
             $query->orderBy('created_at', 'desc');
         }, 'activities.user']);
+        
+        // Ensure followers are loaded with department info
+        $task->load(['followers.department']);
         
         // Debug: Log assignee data for troubleshooting
         \Log::info('Task assignee data:', [
@@ -319,9 +348,11 @@ class TaskController extends Controller
             'is_multi_department' => $task->is_multi_department,
             'departments_count' => $task->departments->count(),
             'departments' => $task->departments->pluck('name')->toArray(),
+            'followers_count' => $task->followers->count(),
+            'followers' => $task->followers->pluck('name')->toArray(),
         ]);
         
-        return view('tasks.show', compact('task'));
+        return view('task-detail', compact('task'));
     }
 
     public function edit(Task $task)
@@ -359,21 +390,22 @@ class TaskController extends Controller
                 abort(403, 'Bạn chỉ có thể xem task của phòng ban mình hoặc task đa phòng ban có sự tham gia của phòng ban mình.');
             }
         } else {
-            // Employee chỉ có thể xem task mà họ được assign hoặc tạo
+            // Employee có thể xem task mà họ được assign, tạo hoặc đang follow
             $isAssigned = $task->assignee_id === $user->id || 
                          $task->creator_id === $user->id ||
-                         $task->assignees->contains('id', $user->id);
+                         $task->assignees->contains('id', $user->id) ||
+                         $task->followers->contains('id', $user->id);
             
             if (!$isAssigned) {
-                abort(403, 'Bạn chỉ có thể xem task mà bạn được assign hoặc tạo.');
+                abort(403, 'Bạn chỉ có thể xem task mà bạn được assign, tạo hoặc đang theo dõi.');
             }
         }
         
         // Load relationships
-        $task->load(['assignees', 'departments']);
+        $task->load(['assignees', 'departments', 'followers']);
         
-        // Load assignees với department để hiển thị đúng trong view
-        $task->load(['assignees.department']);
+        // Load assignees và followers với department để hiển thị đúng trong view
+        $task->load(['assignees.department', 'followers.department']);
         
         // Lấy danh sách users có thể assign (hiển thị tất cả, kiểm tra quyền sẽ được thực hiện khi submit)
         if ($user->isAdmin()) {
@@ -442,7 +474,7 @@ class TaskController extends Controller
                 abort(403, 'Bạn chỉ có thể cập nhật task của phòng ban mình hoặc task đa phòng ban có sự tham gia của phòng ban mình.');
             }
         } else {
-            // Employee chỉ có thể cập nhật task mà họ được assign hoặc tạo
+            // Employee chỉ có thể cập nhật task mà họ được assign hoặc tạo (không phải follower)
             $isAssigned = $task->assignee_id === $user->id || 
                          $task->creator_id === $user->id ||
                          $task->assignees->contains('id', $user->id);
@@ -467,7 +499,8 @@ class TaskController extends Controller
             'priority'    => 'nullable|in:low,medium,high',
             'status'      => 'required|in:in_progress,completed,rejected,overdue,finished',
             'rejection_reason' => 'nullable|string|max:1000',
-
+            'follower_ids' => 'nullable|array',
+            'follower_ids.*' => 'exists:users,id',
             'files.*'     => 'nullable|file|mimes:pdf,doc,docx,xls,xlsx,ppt,pptx,jpg,jpeg,png,gif,webp,mp4,avi,mov,wmv,flv,webm|max:51200',
         ]);
 
@@ -482,8 +515,21 @@ class TaskController extends Controller
         }
 
         // Xử lý multi-user và multi-department assignments
-        $isMultiUser = $request->boolean('is_multi_user');
-        $isMultiDepartment = $request->boolean('is_multi_department');
+        // Xác định multi-user dựa trên số lượng assignee_ids
+        $assigneeIds = $request->input('assignee_ids', []);
+        $isMultiUser = count($assigneeIds) > 1;
+        
+        // Xác định multi-department dựa trên số lượng department_ids
+        $departmentIds = $request->input('department_ids', []);
+        $isMultiDepartment = count($departmentIds) > 1;
+        
+        // Debug log
+        \Log::info('Task Update Debug', [
+            'assignee_ids' => $assigneeIds,
+            'department_ids' => $departmentIds,
+            'is_multi_user' => $isMultiUser,
+            'is_multi_department' => $isMultiDepartment
+        ]);
 
         // Lấy danh sách assignees và managers hiện tại TRƯỚC KHI detach
         $currentAssignees = $task->assignees()->pluck('users.id')->toArray();
@@ -496,7 +542,7 @@ class TaskController extends Controller
         $task->assignees()->detach();
         $task->departments()->detach();
 
-        if ($isMultiUser && $request->has('assignee_ids') && is_array($request->assignee_ids)) {
+        if ($isMultiUser && !empty($assigneeIds)) {
             // Multi-user assignment
             $assigneeIds = $request->assignee_ids;
             
@@ -534,9 +580,9 @@ class TaskController extends Controller
             $task->assignees()->sync($allAssigneeIds);
             $data['assignee_id'] = null; // Clear single assignee
             $data['is_multi_user'] = true;
-        } elseif ($request->filled('assignee_id')) {
+        } elseif (!empty($assigneeIds) && count($assigneeIds) === 1) {
             // Single user assignment
-            $data['assignee_id'] = $request->assignee_id;
+            $data['assignee_id'] = $assigneeIds[0];
             $data['is_multi_user'] = false;
             
             // Kiểm tra quyền theo phòng ban cho assignee
@@ -568,9 +614,8 @@ class TaskController extends Controller
             $data['is_multi_user'] = false;
         }
 
-        if ($isMultiDepartment && $request->has('department_ids') && is_array($request->department_ids)) {
+        if ($isMultiDepartment && !empty($departmentIds)) {
             // Multi-department assignment
-            $departmentIds = $request->department_ids;
             
             // Kiểm tra quyền cho multi-department
             if ($user->isManager()) {
@@ -591,9 +636,9 @@ class TaskController extends Controller
             $task->departments()->attach($departmentIds);
             $data['department_id'] = null; // Clear single department
             $data['is_multi_department'] = true;
-        } elseif ($request->filled('department_id')) {
+        } elseif (!empty($departmentIds) && count($departmentIds) === 1) {
             // Single department assignment
-            $data['department_id'] = $request->department_id;
+            $data['department_id'] = $departmentIds[0];
             $data['is_multi_department'] = false;
         } else {
             $data['department_id'] = null;
@@ -651,8 +696,34 @@ class TaskController extends Controller
 
         $task->update($data);
 
+        // Xử lý Task Followers
+        $task->followers()->detach(); // Xóa tất cả followers cũ
+        
+        if ($request->has('follower_ids') && is_array($request->follower_ids)) {
+            foreach ($request->follower_ids as $followerId) {
+                $follower = User::find($followerId);
+                
+                // Kiểm tra quyền thêm follower
+                if ($user->isManager()) {
+                    // Manager không thể thêm manager khác làm follower
+                    if ($follower && $follower->role === 'manager') {
+                        continue; // Bỏ qua manager
+                    }
+                }
+                
+                // Kiểm tra xem user có phải là assignee hoặc creator không
+                $isAssignee = $task->assignee_id === $followerId || 
+                             $task->creator_id === $followerId ||
+                             $task->assignees->contains('id', $followerId);
+                
+                if (!$isAssignee) {
+                    $task->followers()->attach($followerId);
+                }
+            }
+        }
+
         // Load lại relationships để đảm bảo dữ liệu mới nhất
-        $task->load(['assignees','departments']);
+        $task->load(['assignees','departments','followers']);
 
         // Ghi log hoạt động
         $task->activities()->create([
@@ -698,7 +769,7 @@ class TaskController extends Controller
                 abort(403, 'Bạn chỉ có thể xóa task của phòng ban mình hoặc task đa phòng ban có sự tham gia của phòng ban mình.');
             }
         } else {
-            // Employee chỉ có thể xóa task mà họ được assign hoặc tạo
+            // Employee chỉ có thể xóa task mà họ được assign hoặc tạo (không phải follower)
             $isAssigned = $task->assignee_id === $user->id || 
                          $task->creator_id === $user->id ||
                          $task->assignees->contains('id', $user->id);
@@ -751,7 +822,7 @@ class TaskController extends Controller
                 abort(403, 'Bạn chỉ có thể cập nhật task của phòng ban mình hoặc task đa phòng ban có sự tham gia của phòng ban mình.');
             }
         } else {
-            // Employee chỉ có thể cập nhật task mà họ được assign hoặc tạo
+            // Employee chỉ có thể cập nhật task mà họ được assign hoặc tạo (không phải follower)
             $isAssigned = $task->assignee_id === $user->id || 
                          $task->creator_id === $user->id ||
                          $task->assignees->contains('id', $user->id);
@@ -827,11 +898,10 @@ class TaskController extends Controller
                 
             case 'in_progress':
                 if ($userRole === 'employee') {
-                    // Employee chỉ có thể hoàn thành task cá nhân (không phải multi-department)
-                    if ($isAssigned && !$task->is_multi_department) {
+                    // Employee có thể hoàn thành task mà họ được assign
+                    if ($isAssigned) {
                         return ['completed'];
                     }
-                    // Employee không thể hoàn thành task multi-department
                     return [];
                 }
                 // Admin và Manager có thể thay đổi trạng thái
@@ -849,8 +919,8 @@ class TaskController extends Controller
                 
             case 'rejected':
                 if ($userRole === 'employee') {
-                    // Employee chỉ có thể làm lại task cá nhân
-                    if ($isAssigned && !$task->is_multi_department) {
+                    // Employee có thể làm lại task mà họ được assign
+                    if ($isAssigned) {
                         return ['completed'];
                     }
                     return [];
@@ -859,8 +929,8 @@ class TaskController extends Controller
                 
             case 'overdue':
                 if ($userRole === 'employee') {
-                    // Employee chỉ có thể bắt đầu làm task cá nhân
-                    if ($isAssigned && !$task->is_multi_department) {
+                    // Employee có thể bắt đầu làm task mà họ được assign
+                    if ($isAssigned) {
                         return ['in_progress'];
                     }
                     return [];
@@ -956,17 +1026,47 @@ class TaskController extends Controller
                                  ->whereNotNull('deadline')->where('deadline','<',now())->count(),
             ];
         } else {
-            // Employee chỉ thấy tasks của mình
-            $tasks = Task::with('assignee','creator')
-                        ->where('assignee_id', $user->id)
+            // Employee thấy tasks của mình và tasks đang follow
+            $tasks = Task::with('assignee','creator','followers')
+                        ->where(function($q) use ($user) {
+                            $q->where('assignee_id', $user->id)
+                              ->orWhere('creator_id', $user->id)
+                              ->orWhereHas('followers', function($subQ) use ($user) {
+                                  $subQ->where('user_id', $user->id);
+                              });
+                        })
                         ->latest()
                         ->paginate(10);
             
             $stats = [
-                'doing'   => Task::where('assignee_id',$user->id)->where('status','in_progress')->count(),
-                'done'    => Task::where('assignee_id',$user->id)->where('status','done')->count(),
-                'todo'    => Task::where('assignee_id',$user->id)->where('status','todo')->count(),
-                'overdue' => Task::where('assignee_id',$user->id)->where('status','!=','done')
+                'doing'   => Task::where(function($q) use ($user) {
+                                $q->where('assignee_id', $user->id)
+                                  ->orWhere('creator_id', $user->id)
+                                  ->orWhereHas('followers', function($subQ) use ($user) {
+                                      $subQ->where('user_id', $user->id);
+                                  });
+                            })->where('status','in_progress')->count(),
+                'done'    => Task::where(function($q) use ($user) {
+                                $q->where('assignee_id', $user->id)
+                                  ->orWhere('creator_id', $user->id)
+                                  ->orWhereHas('followers', function($subQ) use ($user) {
+                                      $subQ->where('user_id', $user->id);
+                                  });
+                            })->where('status','done')->count(),
+                'todo'    => Task::where(function($q) use ($user) {
+                                $q->where('assignee_id', $user->id)
+                                  ->orWhere('creator_id', $user->id)
+                                  ->orWhereHas('followers', function($subQ) use ($user) {
+                                      $subQ->where('user_id', $user->id);
+                                  });
+                            })->where('status','todo')->count(),
+                'overdue' => Task::where(function($q) use ($user) {
+                                $q->where('assignee_id', $user->id)
+                                  ->orWhere('creator_id', $user->id)
+                                  ->orWhereHas('followers', function($subQ) use ($user) {
+                                      $subQ->where('user_id', $user->id);
+                                  });
+                            })->where('status','!=','done')
                                  ->whereNotNull('deadline')->where('deadline','<',now())->count(),
             ];
         }
@@ -979,8 +1079,8 @@ class TaskController extends Controller
     {
         $user = $r->user();
         
-        // Load assignees trước khi kiểm tra quyền
-        $task->load('assignees');
+        // Load assignees và followers trước khi kiểm tra quyền
+        $task->load('assignees', 'followers');
         
         // Kiểm tra quyền comment trên task
         if ($user->isAdmin()) {
@@ -1013,13 +1113,14 @@ class TaskController extends Controller
                 abort(403, 'Bạn chỉ có thể comment trên task của phòng ban mình hoặc task đa phòng ban có sự tham gia của phòng ban mình.');
             }
         } else {
-            // Employee chỉ có thể comment trên task mà họ được assign hoặc tạo
+            // Employee có thể comment trên task mà họ được assign, tạo hoặc đang follow
             $isAssigned = $task->assignee_id === $user->id || 
                          $task->creator_id === $user->id ||
-                         $task->assignees->contains('id', $user->id);
+                         $task->assignees->contains('id', $user->id) ||
+                         $task->followers->contains('id', $user->id);
             
             if (!$isAssigned) {
-                abort(403, 'Bạn chỉ có thể comment trên task mà bạn được assign hoặc tạo.');
+                abort(403, 'Bạn chỉ có thể comment trên task mà bạn được assign, tạo hoặc đang theo dõi.');
             }
         }
         
@@ -1134,13 +1235,14 @@ class TaskController extends Controller
                 abort(403, 'Bạn chỉ có thể xem lịch sử task của phòng ban mình hoặc task đa phòng ban có sự tham gia của phòng ban mình.');
             }
         } else {
-            // Employee chỉ có thể xem lịch sử task mà họ được assign hoặc tạo
+            // Employee có thể xem lịch sử task mà họ được assign, tạo hoặc đang follow
             $isAssigned = $task->assignee_id === $user->id || 
                          $task->creator_id === $user->id ||
-                         $task->assignees->contains('id', $user->id);
+                         $task->assignees->contains('id', $user->id) ||
+                         $task->followers->contains('id', $user->id);
             
             if (!$isAssigned) {
-                abort(403, 'Bạn chỉ có thể xem lịch sử task mà bạn được assign hoặc tạo.');
+                abort(403, 'Bạn chỉ có thể xem lịch sử task mà bạn được assign, tạo hoặc đang theo dõi.');
             }
         }
         
@@ -1188,7 +1290,7 @@ class TaskController extends Controller
                 return response()->json(['success' => false, 'message' => 'Bạn chỉ có thể xóa file của task phòng ban mình hoặc task đa phòng ban có sự tham gia của phòng ban mình.']);
             }
         } else {
-            // Employee chỉ có thể xóa file của task mà họ được assign hoặc tạo
+            // Employee chỉ có thể xóa file của task mà họ được assign hoặc tạo (không phải follower)
             $isAssigned = $task->assignee_id === $user->id || 
                          $task->creator_id === $user->id ||
                          $task->assignees->contains('id', $user->id);
@@ -1250,7 +1352,7 @@ class TaskController extends Controller
                 abort(403, 'Bạn chỉ có thể hoàn tác task của phòng ban mình.');
             }
         } else {
-            // Employee chỉ có thể hoàn tác task mà họ được assign hoặc tạo
+            // Employee chỉ có thể hoàn tác task mà họ được assign hoặc tạo (không phải follower)
             $isAssigned = $task->assignee_id === $user->id || 
                          $task->creator_id === $user->id ||
                          $task->assignees->contains('id', $user->id);

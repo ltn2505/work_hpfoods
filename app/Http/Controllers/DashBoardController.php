@@ -272,33 +272,50 @@ class DashboardController extends Controller
             return view('welcome', compact('tasks','stats', 'managerMultiDepartmentTasks', 'managerDepartment', 'managerDepartmentTasks'));
             
         } else {
-            // Employee: Chỉ thấy tasks được giao cho mình
-            $query = Task::with(['assignees.department', 'departments', 'creator'])
+            // Employee: Chỉ thấy tasks được giao cho mình hoặc đang follow
+            $query = Task::with(['assignees.department', 'departments', 'creator', 'followers'])
                         ->where(function($q) use ($user) {
                             // Tasks được giao trực tiếp (assignee_id)
                             $q->where('assignee_id', $user->id)
                             // Hoặc tasks được giao qua pivot table (task_assignees)
                             ->orWhereRaw('id IN (SELECT task_id FROM task_assignees WHERE user_id = ?)', [$user->id])
                             // Hoặc tasks được tạo bởi employee
-                            ->orWhere('creator_id', $user->id);
+                            ->orWhere('creator_id', $user->id)
+                            // Hoặc tasks mà employee đang follow
+                            ->orWhereRaw('id IN (SELECT task_id FROM task_followers WHERE user_id = ?)', [$user->id]);
                         });
             
             $stats = [
-                'doing'   => Task::where('assignee_id', $user->id)
-                            ->orWhereRaw('id IN (SELECT task_id FROM task_assignees WHERE user_id = ?)', [$user->id])
-                            ->where('status','in_progress')->count(),
-                'completed' => Task::where('assignee_id', $user->id)
-                            ->orWhereRaw('id IN (SELECT task_id FROM task_assignees WHERE user_id = ?)', [$user->id])
-                            ->where('status','completed')->count(),
-                'rejected' => Task::where('assignee_id', $user->id)
-                            ->orWhereRaw('id IN (SELECT task_id FROM task_assignees WHERE user_id = ?)', [$user->id])
-                            ->where('status','rejected')->count(),
-                'overdue' => Task::where('assignee_id', $user->id)
-                            ->orWhereRaw('id IN (SELECT task_id FROM task_assignees WHERE user_id = ?)', [$user->id])
-                            ->where('status','overdue')->count(),
-                'finished' => Task::where('assignee_id', $user->id)
-                            ->orWhereRaw('id IN (SELECT task_id FROM task_assignees WHERE user_id = ?)', [$user->id])
-                            ->where('status','finished')->count(),
+                'doing'   => Task::where(function($q) use ($user) {
+                                $q->where('assignee_id', $user->id)
+                                  ->orWhereRaw('id IN (SELECT task_id FROM task_assignees WHERE user_id = ?)', [$user->id])
+                                  ->orWhere('creator_id', $user->id)
+                                  ->orWhereRaw('id IN (SELECT task_id FROM task_followers WHERE user_id = ?)', [$user->id]);
+                            })->where('status','in_progress')->count(),
+                'completed' => Task::where(function($q) use ($user) {
+                                $q->where('assignee_id', $user->id)
+                                  ->orWhereRaw('id IN (SELECT task_id FROM task_assignees WHERE user_id = ?)', [$user->id])
+                                  ->orWhere('creator_id', $user->id)
+                                  ->orWhereRaw('id IN (SELECT task_id FROM task_followers WHERE user_id = ?)', [$user->id]);
+                            })->where('status','completed')->count(),
+                'rejected' => Task::where(function($q) use ($user) {
+                                $q->where('assignee_id', $user->id)
+                                  ->orWhereRaw('id IN (SELECT task_id FROM task_assignees WHERE user_id = ?)', [$user->id])
+                                  ->orWhere('creator_id', $user->id)
+                                  ->orWhereRaw('id IN (SELECT task_id FROM task_followers WHERE user_id = ?)', [$user->id]);
+                            })->where('status','rejected')->count(),
+                'overdue' => Task::where(function($q) use ($user) {
+                                $q->where('assignee_id', $user->id)
+                                  ->orWhereRaw('id IN (SELECT task_id FROM task_assignees WHERE user_id = ?)', [$user->id])
+                                  ->orWhere('creator_id', $user->id)
+                                  ->orWhereRaw('id IN (SELECT task_id FROM task_followers WHERE user_id = ?)', [$user->id]);
+                            })->where('status','overdue')->count(),
+                'finished' => Task::where(function($q) use ($user) {
+                                $q->where('assignee_id', $user->id)
+                                  ->orWhereRaw('id IN (SELECT task_id FROM task_assignees WHERE user_id = ?)', [$user->id])
+                                  ->orWhere('creator_id', $user->id)
+                                  ->orWhereRaw('id IN (SELECT task_id FROM task_followers WHERE user_id = ?)', [$user->id]);
+                            })->where('status','finished')->count(),
             ];
             
             // Filter theo trạng thái (hỗ trợ nhiều trạng thái)

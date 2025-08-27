@@ -107,6 +107,33 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator {
     display: block;
 }
 
+/* Đảm bảo Task Followers dropdown luôn hiển thị đúng */
+#followerDropdownContent {
+    z-index: 2000 !important;
+}
+
+#followerDropdownHeader {
+    z-index: 2001 !important;
+    position: relative;
+}
+
+/* Style cho inactive users */
+.inactive-user {
+    opacity: 0.6;
+    background-color: #f8f9fa;
+    pointer-events: none;
+}
+
+.inactive-user .follower-checkbox:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.inactive-user label {
+    color: #6c757d !important;
+    cursor: not-allowed;
+}
+
 .dropdown-item {
     padding: 0.5rem 1rem;
     cursor: pointer;
@@ -333,6 +360,57 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator {
                     <span class="badge bg-danger px-3 py-2">Cao</span>
                   </label>
                 </div>
+              </div>
+            </div>
+
+            {{-- Task Followers --}}
+            <div class="mb-4">
+              <label class="form-label fw-bold text-dark">
+                <i class="fas fa-eye me-2"></i>Task Followers
+              </label>
+              <div class="form-text text-info mb-2">
+                <i class="fas fa-info-circle me-1"></i>
+                Những người này sẽ theo dõi tiến trình công việc và có thể tham gia thảo luận
+              </div>
+              
+              <div class="custom-dropdown">
+                <div class="dropdown-header" id="followerDropdownHeader">
+                  <span class="dropdown-text">Chọn Task Followers...</span>
+                  <i class="fas fa-chevron-down dropdown-arrow"></i>
+                </div>
+                <div class="dropdown-content" id="followerDropdownContent" style="max-height: 200px; overflow-y: auto;">
+                  @foreach($departments as $dept)
+                    <div class="dropdown-group" data-department="{{ $dept->id }}">
+                      <div class="dropdown-group-header">{{ $dept->name }}</div>
+                      @foreach($dept->users as $user)
+                        @if($user->role === 'manager' || $user->role === 'employee')
+                          <div class="dropdown-item follower-item" data-department="{{ $dept->id }}" data-name="{{ strtolower($user->name) }}" data-role="{{ strtolower($user->role) }}">
+                            <input type="checkbox" class="follower-checkbox" name="follower_ids[]" value="{{ $user->id }}" id="follower_{{ $user->id }}">
+                            <label for="follower_{{ $user->id }}" data-original-text="{{ $user->name }} - <span class=&quot;text-muted&quot;>{{ ucfirst($user->role) }}</span>">
+                              {{ $user->name }} - <span class="text-muted">{{ ucfirst($user->role) }}</span>
+                            </label>
+                          </div>
+                        @endif
+                      @endforeach
+                    </div>
+                  @endforeach
+                </div>
+              </div>
+              
+              {{-- Selected followers display --}}
+              <div id="selectedFollowers" class="mt-2" style="display: none;">
+                <label class="form-label fw-bold text-dark">Đã chọn:</label>
+                <div id="selectedFollowersList" class="border rounded p-2 bg-light"></div>
+              </div>
+              
+              <div class="form-text text-warning">
+                <i class="fas fa-exclamation-triangle me-1"></i>
+                <strong>Lưu ý:</strong> 
+                @if(auth()->user()->isManager())
+                  Bạn không thể thêm Manager khác làm Task Follower. Chỉ có thể thêm Employee.
+                @else
+                  Có thể thêm cả Manager và Employee làm Task Follower.
+                @endif
               </div>
             </div>
 
@@ -621,6 +699,12 @@ document.addEventListener('DOMContentLoaded', function() {
     const selectedUsers = document.getElementById('selectedUsers');
     const selectedUsersList = document.getElementById('selectedUsersList');
 
+    // Task Followers handling
+    const followerDropdownHeader = document.getElementById('followerDropdownHeader');
+    const followerDropdownContent = document.getElementById('followerDropdownContent');
+    const selectedFollowers = document.getElementById('selectedFollowers');
+    const selectedFollowersList = document.getElementById('selectedFollowersList');
+
 
 
     // Department dropdown toggle
@@ -637,6 +721,14 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
+    // Task Followers dropdown toggle
+    if (followerDropdownHeader) {
+        followerDropdownHeader.addEventListener('click', function() {
+            followerDropdownContent.classList.toggle('show');
+            this.classList.toggle('active');
+        });
+    }
+
     // Close dropdowns when clicking outside
     document.addEventListener('click', function(e) {
         if (!departmentDropdownHeader.contains(e.target) && !departmentDropdownContent.contains(e.target)) {
@@ -646,6 +738,10 @@ document.addEventListener('DOMContentLoaded', function() {
         if (userDropdownHeader && !userDropdownHeader.contains(e.target) && !userDropdownContent.contains(e.target)) {
             userDropdownContent.classList.remove('show');
             userDropdownHeader.classList.remove('active');
+        }
+        if (followerDropdownHeader && !followerDropdownHeader.contains(e.target) && !followerDropdownContent.contains(e.target)) {
+            followerDropdownContent.classList.remove('show');
+            followerDropdownHeader.classList.remove('active');
         }
     });
 
@@ -706,8 +802,8 @@ document.addEventListener('DOMContentLoaded', function() {
             userSelectSection.style.display = 'block';
         }
         
-        // Filter users by selected departments
-        const userGroups = document.querySelectorAll('.dropdown-group');
+        // Filter users by selected departments (chỉ áp dụng cho user dropdown, không ảnh hưởng đến follower dropdown)
+        const userGroups = document.querySelectorAll('#userDropdownContent .dropdown-group');
         console.log('Total user groups:', userGroups.length);
         
         // Hide all groups first
@@ -718,7 +814,7 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Show only selected departments
         selectedDepts.forEach(deptId => {
-            const group = document.querySelector(`[data-department="${deptId}"]`);
+            const group = document.querySelector(`#userDropdownContent [data-department="${deptId}"]`);
             console.log('Looking for department:', deptId, 'Found group:', group);
             if (group) {
                 group.style.display = 'block';
@@ -731,11 +827,11 @@ document.addEventListener('DOMContentLoaded', function() {
         this.className = 'btn btn-warning btn-sm mt-2';
     });
 
-    // Search functionality
+    // Search functionality (chỉ áp dụng cho user dropdown)
     if (userSearch) {
         userSearch.addEventListener('input', function() {
             const searchTerm = this.value.toLowerCase();
-            const userItems = document.querySelectorAll('.user-item');
+            const userItems = document.querySelectorAll('#userDropdownContent .user-item');
             
             userItems.forEach(item => {
                 const userName = item.dataset.name;
@@ -807,6 +903,12 @@ document.addEventListener('DOMContentLoaded', function() {
         if (e.target.classList.contains('user-checkbox')) {
             updateUserDropdownText();
             updateMultiUserFlag();
+            // Cập nhật trạng thái follower checkboxes khi user selection thay đổi
+            updateFollowerCheckboxes();
+        }
+        if (e.target.classList.contains('follower-checkbox')) {
+            updateFollowerDropdownText();
+            validateFollowerSelection(e.target);
         }
     });
 
@@ -816,6 +918,145 @@ document.addEventListener('DOMContentLoaded', function() {
         if (checkbox) {
             checkbox.checked = false;
             updateUserDropdownText();
+        }
+    };
+
+    // Update follower dropdown text
+    function updateFollowerDropdownText() {
+        const checkedFollowers = document.querySelectorAll('.follower-checkbox:checked');
+        const dropdownText = followerDropdownHeader.querySelector('.dropdown-text');
+        
+        if (checkedFollowers.length === 0) {
+            dropdownText.textContent = 'Chọn Task Followers...';
+            selectedFollowers.style.display = 'none';
+        } else if (checkedFollowers.length === 1) {
+            const label = checkedFollowers[0].nextElementSibling.textContent.trim();
+            dropdownText.textContent = label;
+            updateSelectedFollowersList();
+        } else {
+            dropdownText.textContent = `Đã chọn ${checkedFollowers.length} người`;
+            updateSelectedFollowersList();
+        }
+    }
+
+    // Update selected followers list
+    function updateSelectedFollowersList() {
+        const checkedFollowers = document.querySelectorAll('.follower-checkbox:checked');
+        
+        if (checkedFollowers.length > 0) {
+            selectedFollowers.style.display = 'block';
+            selectedFollowersList.innerHTML = '';
+            
+            checkedFollowers.forEach(checkbox => {
+                const label = checkbox.nextElementSibling.textContent.trim();
+                const followerDiv = document.createElement('div');
+                followerDiv.className = 'd-flex align-items-center justify-content-between mb-1';
+                followerDiv.innerHTML = `
+                    <span class="badge bg-info me-2">${label}</span>
+                    <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeSelectedFollower('${checkbox.value}')">
+                        <i class="fas fa-times"></i>
+                    </button>
+                `;
+                selectedFollowersList.appendChild(followerDiv);
+            });
+        } else {
+            selectedFollowers.style.display = 'none';
+        }
+    }
+
+    // Reset follower labels to original state
+    function resetFollowerLabels() {
+        const followerCheckboxes = document.querySelectorAll('.follower-checkbox');
+        followerCheckboxes.forEach(followerCheckbox => {
+            const label = followerCheckbox.nextElementSibling;
+            // Lấy text gốc từ data attribute
+            const originalText = label.getAttribute('data-original-text');
+            if (originalText) {
+                // Set lại text gốc
+                label.innerHTML = originalText;
+            }
+        });
+    }
+
+    // Update follower checkboxes based on user selection
+    function updateFollowerCheckboxes() {
+        const checkedUsers = document.querySelectorAll('.user-checkbox:checked');
+        const checkedUserIds = Array.from(checkedUsers).map(cb => cb.value);
+        
+        const followerCheckboxes = document.querySelectorAll('.follower-checkbox');
+        
+        // Reset tất cả label về trạng thái ban đầu
+        resetFollowerLabels();
+        
+        followerCheckboxes.forEach(followerCheckbox => {
+            const userId = followerCheckbox.value;
+            const userItem = followerCheckbox.closest('.follower-item');
+            const userRole = userItem.dataset.role;
+            
+            // Kiểm tra nếu user đã được chọn làm assignee
+            const isAssignee = checkedUserIds.includes(userId);
+            
+            // Kiểm tra quyền của Manager
+            const isManager = userRole === 'manager';
+            const currentUserIsManager = @if(auth()->user()->isManager()) true @else false @endif;
+            const cannotSelectManager = currentUserIsManager && isManager;
+            
+            if (isAssignee || cannotSelectManager) {
+                // Disable checkbox
+                followerCheckbox.disabled = true;
+                followerCheckbox.checked = false; // Bỏ chọn nếu đã được chọn
+                userItem.classList.add('inactive-user');
+                
+                // Thêm visual feedback
+                const label = followerCheckbox.nextElementSibling;
+                if (isAssignee) {
+                    label.innerHTML += ' <span class="badge bg-warning">Đã giao việc</span>';
+                } else if (cannotSelectManager) {
+                    label.innerHTML += ' <span class="badge bg-secondary">Không thể chọn</span>';
+                }
+            } else {
+                // Enable checkbox
+                followerCheckbox.disabled = false;
+                userItem.classList.remove('inactive-user');
+            }
+        });
+        
+        // Cập nhật text hiển thị
+        updateFollowerDropdownText();
+    }
+
+    // Validate follower selection
+    function validateFollowerSelection(checkbox) {
+        const userId = checkbox.value;
+        const userItem = checkbox.closest('.follower-item');
+        const userRole = userItem.dataset.role;
+        
+        // Kiểm tra nếu user đã được chọn làm assignee
+        const isAssignee = document.querySelector(`.user-checkbox[value="${userId}"]:checked`);
+        if (isAssignee) {
+            alert('Không thể thêm người đã được giao việc làm Task Follower!');
+            checkbox.checked = false;
+            updateFollowerDropdownText();
+            return;
+        }
+        
+        // Kiểm tra quyền của Manager
+        @if(auth()->user()->isManager())
+        if (userRole === 'manager') {
+            alert('Bạn không thể thêm Manager khác làm Task Follower!');
+            checkbox.checked = false;
+            updateFollowerDropdownText();
+            return;
+        }
+        @endif
+    }
+
+    // Remove selected follower
+    window.removeSelectedFollower = function(userId) {
+        const checkbox = document.querySelector(`.follower-checkbox[value="${userId}"]`);
+        if (checkbox) {
+            checkbox.checked = false;
+            updateFollowerDropdownText();
         }
     };
 
@@ -835,6 +1076,9 @@ document.addEventListener('DOMContentLoaded', function() {
             console.log('Selected user:', user.value, user.nextElementSibling.textContent.trim());
         });
     });
+
+    // Khởi tạo trạng thái follower checkboxes khi trang load
+    updateFollowerCheckboxes();
 
 
 });
