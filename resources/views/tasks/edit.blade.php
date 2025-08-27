@@ -100,6 +100,31 @@
     width: 100%;
 }
 
+/* Inactive user styling */
+.inactive-user {
+    opacity: 0.6;
+    background-color: #f8f9fa;
+    border-left: 3px solid #6c757d;
+    pointer-events: none;
+}
+
+.inactive-user .form-check-input:disabled {
+    opacity: 0.4;
+    cursor: not-allowed !important;
+    pointer-events: none;
+}
+
+.inactive-user .form-check-label {
+    color: #6c757d !important;
+    cursor: not-allowed !important;
+    pointer-events: none;
+}
+
+.inactive-user .form-check {
+    pointer-events: none;
+}
+}
+
 .dropdown-toggle {
     display: flex;
     align-items: center;
@@ -519,20 +544,37 @@ input[type="datetime-local"]::-webkit-outer-spin-button {
                                 <div id="user_list_container">
                                     @foreach($users as $user)
                                         @if($user)
-                                            <div class="dropdown-item user-item" data-user-id="{{ $user->id }}" data-department-id="{{ $user->department_id ?? '' }}">
+                                            @php
+                                                $isCurrentAssignee = in_array($user->id, $task->assignees->pluck('id')->toArray());
+                                                $isManager = $user->role === 'manager';
+                                                $isCurrentManager = $isCurrentAssignee && $isManager;
+                                                // Debug info
+                                                // echo "User: {$user->name}, Role: {$user->role}, Current: " . ($isCurrentAssignee ? 'Yes' : 'No') . ", Manager: " . ($isManager ? 'Yes' : 'No') . ", CurrentManager: " . ($isCurrentManager ? 'Yes' : 'No') . "<br>";
+                                            @endphp
+                                            <div class="dropdown-item user-item {{ $isCurrentManager && auth()->user()->isManager() ? 'inactive-user' : '' }}" 
+                                                 data-user-id="{{ $user->id }}" 
+                                                 data-department-id="{{ $user->department_id ?? '' }}"
+                                                 data-role="{{ $user->role }}">
                                                 <div class="form-check">
                                                     <input class="form-check-input" type="checkbox" name="assignee_ids[]" 
                                                            value="{{ $user->id }}" id="user_{{ $user->id }}"
-                                                           {{ in_array($user->id, old('assignee_ids', $task->assignees->pluck('id')->toArray())) ? 'checked' : '' }}>
-                                                    <label class="form-check-label" for="user_{{ $user->id }}">
+                                                           {{ in_array($user->id, old('assignee_ids', $task->assignees->pluck('id')->toArray())) ? 'checked' : '' }}
+                                                           {{ $isCurrentManager && auth()->user()->isManager() ? 'disabled' : '' }}>
+                                                    <label class="form-check-label {{ $isCurrentManager && auth()->user()->isManager() ? 'text-muted' : '' }}" for="user_{{ $user->id }}">
                                                         {{ $user->name ?? 'Không có tên' }} 
                                                         @if($user->department) 
                                                             <span class="badge bg-secondary">{{ $user->department->name }}</span>
                                                         @endif
-                        </label>
+                                                        @if($isManager)
+                                                            <span class="badge bg-warning">Manager</span>
+                                                        @endif
+                                                        @if($isCurrentManager)
+                                                            <span class="badge bg-info">Hiện tại</span>
+                                                        @endif
+                                                    </label>
                                                 </div>
                                             </div>
-                            @endif
+                                        @endif
                                     @endforeach
                         </div>
                         </div>
@@ -544,6 +586,19 @@ input[type="datetime-local"]::-webkit-outer-spin-button {
                     @error('assignee_ids')
                         <div class="invalid-feedback">{{ $message }}</div>
                     @enderror
+                    
+                    <div class="form-text">
+                        <i class="bi bi-info-circle me-1"></i>
+                        <strong>Lưu ý:</strong> 
+                        @if(auth()->user()->isAdmin())
+                            Bạn có thể thay đổi tất cả thông tin và assignees (bao gồm cả Managers).
+                        @elseif(auth()->user()->isManager())
+                            Những Manager hiện tại sẽ được giữ nguyên và không thể thay đổi. 
+                            Bạn chỉ có thể thêm/bớt Employees.
+                        @else
+                            Bạn chỉ có thể xem thông tin, không thể thay đổi assignees.
+                        @endif
+                    </div>
                 </div>
 
                 {{-- Deadline --}}
@@ -819,11 +874,16 @@ document.addEventListener('DOMContentLoaded', function() {
         const selectedDepartments = Array.from(document.querySelectorAll('#department_dropdown_menu input[type="checkbox"]:checked'))
             .map(cb => cb.value);
         
+        console.log('Selected departments:', selectedDepartments); // Debug
+        
         const userItems = document.querySelectorAll('.user-item');
+        console.log('Total user items:', userItems.length); // Debug
         
         userItems.forEach(userItem => {
             const departmentId = userItem.getAttribute('data-department-id');
             const checkbox = userItem.querySelector('input[type="checkbox"]');
+            
+            console.log('User item department:', departmentId, 'Selected:', selectedDepartments.includes(departmentId)); // Debug
             
             if (selectedDepartments.length === 0) {
                 // Nếu không chọn phòng ban nào, hiển thị tất cả
@@ -836,7 +896,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 userItem.style.display = 'none';
                 // Bỏ chọn checkbox nếu đang ẩn
                 if (checkbox.checked) {
-            checkbox.checked = false;
+                    checkbox.checked = false;
                     updateSelectedText('user');
                 }
             }
@@ -911,6 +971,54 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Initial filter based on existing selections
     filterUsersByDepartments();
+    
+    // Re-filter when page loads to ensure correct display
+    setTimeout(() => {
+        filterUsersByDepartments();
+        
+        // Debug: Check disabled checkboxes
+        const disabledCheckboxes = document.querySelectorAll('.form-check-input:disabled');
+        console.log('Disabled checkboxes found:', disabledCheckboxes.length);
+        disabledCheckboxes.forEach(cb => {
+            console.log('Disabled checkbox:', cb.id, 'Value:', cb.value);
+        });
+        
+        // Debug: Check inactive users
+        const inactiveUsers = document.querySelectorAll('.inactive-user');
+        console.log('Inactive users found:', inactiveUsers.length);
+        inactiveUsers.forEach(user => {
+            console.log('Inactive user:', user.getAttribute('data-user-id'));
+        });
+    }, 100);
+    
+    // Prevent interaction with disabled manager checkboxes (only for managers)
+    @if(auth()->user()->isManager())
+    document.addEventListener('click', function(e) {
+        if (e.target.classList.contains('form-check-input') && e.target.disabled) {
+            e.preventDefault();
+            e.stopPropagation();
+            return false;
+        }
+        
+        // Prevent interaction with inactive user items
+        if (e.target.closest('.inactive-user')) {
+            e.preventDefault();
+            e.stopPropagation();
+            return false;
+        }
+    });
+    @endif
+    
+    // Prevent change events on disabled checkboxes (only for managers)
+    @if(auth()->user()->isManager())
+    document.addEventListener('change', function(e) {
+        if (e.target.classList.contains('form-check-input') && e.target.disabled) {
+            e.preventDefault();
+            e.stopPropagation();
+            return false;
+        }
+    });
+    @endif
 });
 
 // Function to validate textarea and prevent long words

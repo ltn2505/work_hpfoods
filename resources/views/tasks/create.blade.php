@@ -285,7 +285,7 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator {
               @if(auth()->user()->isManager())
                 <div class="form-text text-info">
                   <i class="fas fa-info-circle me-1"></i>
-                  Bạn chỉ có thể giao việc cho nhân viên cùng phòng ban
+                  Bạn có thể giao việc cho employees của tất cả phòng ban. Task đa phòng ban phải bao gồm phòng ban của bạn.
                 </div>
               @endif
             </div>

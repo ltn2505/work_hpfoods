@@ -25,13 +25,13 @@ class TaskController extends Controller
             $users = User::with('department')->orderBy('name')->get();
             $departments = \App\Models\Department::orderBy('name')->get();
         } else {
-            // Manager chỉ có thể giao việc cho users cùng phòng ban
+            // Manager có thể giao việc cho employees của tất cả phòng ban (không giao cho managers)
             $users = User::with('department')
-                        ->where('department_id', $user->department_id)
+                        ->where('role', 'employee') // Chỉ giao việc cho employees
                         ->where('id', '!=', $user->id) // Không giao việc cho chính mình
                         ->orderBy('name')
                         ->get();
-            $departments = \App\Models\Department::where('id', $user->department_id)->get();
+            $departments = \App\Models\Department::orderBy('name')->get(); // Manager có thể chọn tất cả phòng ban
         }
         
         return view('tasks.create', compact('users', 'departments'));
@@ -64,17 +64,7 @@ class TaskController extends Controller
             'is_recurring' => 'nullable|boolean',
         ]);
 
-        // Debug: Log dữ liệu gửi từ form
-        \Log::info('Task creation data:', [
-            'user_id' => $user->id,
-            'user_name' => $user->name,
-            'user_role' => $user->role,
-            'user_department_id' => $user->department_id,
-            'assignee_ids' => $r->input('assignee_ids'),
-            'department_ids' => $r->input('department_ids'),
-            'is_multi_user' => $r->input('is_multi_user'),
-            'is_multi_department' => $r->input('is_multi_department'),
-        ]);
+
 
         // Kiểm tra quyền theo phòng ban
         if ($user->isManager()) {
@@ -96,13 +86,21 @@ class TaskController extends Controller
                 \Log::info('Checking single assignee:', [
                     'assignee_id' => $data['assignee_id'],
                     'assignee_department_id' => $assignee ? $assignee->department_id : null,
-                    'assignee_dept_type' => $assignee ? gettype($assignee->department_id) : null,
+                    'assignee_role' => $assignee ? $assignee->role : null,
                     'user_department_id' => $user->department_id,
-                    'user_dept_type' => gettype($user->department_id),
-                    'comparison' => $assignee ? ((int)$assignee->department_id !== (int)$user->department_id) : false,
                 ]);
+                
+                // Manager chỉ có thể giao việc cho employee, không giao cho manager khác
+                if ($assignee && $assignee->role === 'manager') {
+                    abort(403, 'Bạn chỉ có thể giao việc cho nhân viên (employee), không thể giao việc cho manager khác.');
+                }
+                
+                // Kiểm tra phòng ban (cho phép đa phòng ban)
                 if ($assignee && (int)$assignee->department_id !== (int)$user->department_id) {
-                    abort(403, 'Bạn chỉ có thể giao việc cho nhân viên cùng phòng ban.');
+                    // Nếu là task đa phòng ban, cho phép giao việc cho employee phòng ban khác
+                    if (!($r->boolean('is_multi_department') && $r->has('department_ids'))) {
+                        abort(403, 'Bạn chỉ có thể giao việc cho nhân viên cùng phòng ban hoặc tạo task đa phòng ban.');
+                    }
                 }
             }
             
@@ -113,13 +111,21 @@ class TaskController extends Controller
                     \Log::info('Checking multi assignee:', [
                         'assignee_id' => $assigneeId,
                         'assignee_department_id' => $assignee ? $assignee->department_id : null,
-                        'assignee_dept_type' => $assignee ? gettype($assignee->department_id) : null,
+                        'assignee_role' => $assignee ? $assignee->role : null,
                         'user_department_id' => $user->department_id,
-                        'user_dept_type' => gettype($user->department_id),
-                        'comparison' => $assignee ? ((int)$assignee->department_id !== (int)$user->department_id) : false,
                     ]);
+                    
+                    // Manager chỉ có thể giao việc cho employee, không giao cho manager khác
+                    if ($assignee && $assignee->role === 'manager') {
+                        abort(403, 'Bạn chỉ có thể giao việc cho nhân viên (employee), không thể giao việc cho manager khác.');
+                    }
+                    
+                    // Kiểm tra phòng ban (cho phép đa phòng ban)
                     if ($assignee && (int)$assignee->department_id !== (int)$user->department_id) {
-                        abort(403, 'Bạn chỉ có thể giao việc cho nhân viên cùng phòng ban.');
+                        // Nếu là task đa phòng ban, cho phép giao việc cho employee phòng ban khác
+                        if (!($r->boolean('is_multi_department') && $r->has('department_ids'))) {
+                            abort(403, 'Bạn chỉ có thể giao việc cho nhân viên cùng phòng ban hoặc tạo task đa phòng ban.');
+                        }
                     }
                 }
             }
@@ -129,12 +135,19 @@ class TaskController extends Controller
                 abort(403, 'Bạn chỉ có thể giao việc cho phòng ban của mình.');
             }
             
-            // Kiểm tra department_ids (multi-department)
+            // Kiểm tra department_ids (multi-department) - Manager có thể tạo task đa phòng ban
             if (isset($data['department_ids']) && $data['department_ids']) {
+                // Manager phải có phòng ban của mình trong danh sách
+                $hasOwnDepartment = false;
                 foreach ($data['department_ids'] as $deptId) {
-                    if ((int)$deptId !== (int)$user->department_id) {
-                        abort(403, 'Bạn chỉ có thể giao việc cho phòng ban của mình.');
+                    if ((int)$deptId === (int)$user->department_id) {
+                        $hasOwnDepartment = true;
+                        break;
                     }
+                }
+                
+                if (!$hasOwnDepartment) {
+                    abort(403, 'Task đa phòng ban phải bao gồm phòng ban của bạn.');
                 }
             }
         }
@@ -206,13 +219,7 @@ class TaskController extends Controller
             }
         }
         
-        // Debug: Log department processing
-        \Log::info('Department processing:', [
-            'is_multi_department' => $r->boolean('is_multi_department'),
-            'department_ids' => $r->input('department_ids'),
-            'final_department_id' => $data['department_id'] ?? null,
-            'final_is_multi_department' => $data['is_multi_department'],
-        ]);
+
 
         $task = Task::create($data);
 
@@ -229,10 +236,6 @@ class TaskController extends Controller
 
         // Xử lý department assignments (cả single và multi)
         if ($r->has('department_ids') && is_array($r->department_ids)) {
-            \Log::info('Attaching departments to task:', [
-                'task_id' => $task->id,
-                'department_ids' => $r->department_ids,
-            ]);
             foreach ($r->department_ids as $departmentId) {
                 $task->departments()->attach($departmentId);
             }
@@ -249,10 +252,31 @@ class TaskController extends Controller
         if ($user->isAdmin()) {
             // Admin có thể xem mọi task
         } elseif ($user->isManager()) {
-            // Manager chỉ có thể xem task của phòng ban mình
-            if ($task->assignee && $task->assignee->department_id !== $user->department_id &&
-                $task->creator && $task->creator->department_id !== $user->department_id) {
-                abort(403, 'Bạn chỉ có thể xem task của phòng ban mình.');
+            // Manager có thể xem task của phòng ban mình hoặc task đa phòng ban có sự tham gia của phòng ban mình
+            $canView = false;
+            
+            // Kiểm tra task đơn phòng ban
+            if ($task->department_id === $user->department_id) {
+                $canView = true;
+            }
+            
+            // Kiểm tra task đa phòng ban
+            if ($task->is_multi_department && $task->departments->contains('id', $user->department_id)) {
+                $canView = true;
+            }
+            
+            // Kiểm tra assignees
+            if ($task->assignees->where('department_id', $user->department_id)->count() > 0) {
+                $canView = true;
+            }
+            
+            // Kiểm tra creator
+            if ($task->creator && $task->creator->department_id === $user->department_id) {
+                $canView = true;
+            }
+            
+            if (!$canView) {
+                abort(403, 'Bạn chỉ có thể xem task của phòng ban mình hoặc task đa phòng ban có sự tham gia của phòng ban mình.');
             }
         } else {
             // Employee có thể xem task mà họ được assign hoặc tạo
@@ -287,43 +311,77 @@ class TaskController extends Controller
     {
         $user = auth()->user();
         
-        // Kiểm tra quyền chỉnh sửa task
+        // Chỉ kiểm tra quyền XEM task (không kiểm tra quyền chỉnh sửa ở đây)
         if ($user->isAdmin()) {
-            // Admin có thể chỉnh sửa mọi task
+            // Admin có thể xem mọi task
         } elseif ($user->isManager()) {
-            // Manager chỉ có thể chỉnh sửa task của phòng ban mình
-            if ($task->assignee && $task->assignee->department_id !== $user->department_id &&
-                $task->creator && $task->creator->department_id !== $user->department_id) {
-                abort(403, 'Bạn chỉ có thể chỉnh sửa task của phòng ban mình.');
+            // Manager có thể xem task của phòng ban mình hoặc task đa phòng ban có sự tham gia của phòng ban mình
+            $canView = false;
+            
+            // Kiểm tra task đơn phòng ban
+            if ($task->department_id === $user->department_id) {
+                $canView = true;
+            }
+            
+            // Kiểm tra task đa phòng ban
+            if ($task->is_multi_department && $task->departments->contains('id', $user->department_id)) {
+                $canView = true;
+            }
+            
+            // Kiểm tra assignees
+            if ($task->assignees->where('department_id', $user->department_id)->count() > 0) {
+                $canView = true;
+            }
+            
+            // Kiểm tra creator
+            if ($task->creator && $task->creator->department_id === $user->department_id) {
+                $canView = true;
+            }
+            
+            if (!$canView) {
+                abort(403, 'Bạn chỉ có thể xem task của phòng ban mình hoặc task đa phòng ban có sự tham gia của phòng ban mình.');
             }
         } else {
-            // Employee chỉ có thể chỉnh sửa task mà họ được assign hoặc tạo
+            // Employee chỉ có thể xem task mà họ được assign hoặc tạo
             $isAssigned = $task->assignee_id === $user->id || 
                          $task->creator_id === $user->id ||
                          $task->assignees->contains('id', $user->id);
             
             if (!$isAssigned) {
-                abort(403, 'Bạn chỉ có thể chỉnh sửa task mà bạn được assign hoặc tạo.');
+                abort(403, 'Bạn chỉ có thể xem task mà bạn được assign hoặc tạo.');
             }
         }
         
         // Load relationships
         $task->load(['assignees', 'departments']);
         
-        // Lấy danh sách users có thể assign
+        // Load assignees với department để hiển thị đúng trong view
+        $task->load(['assignees.department']);
+        
+        // Lấy danh sách users có thể assign (hiển thị tất cả, kiểm tra quyền sẽ được thực hiện khi submit)
         if ($user->isAdmin()) {
             // Admin có thể giao việc cho tất cả users
-            $users = User::with('department')->orderBy('name')->get(['id','name','department_id']);
+            $users = User::with('department')->orderBy('name')->get(['id','name','department_id','role']);
         } elseif ($user->isManager()) {
-            // Manager chỉ có thể giao việc cho users cùng phòng ban
+            // Manager có thể giao việc cho employees của tất cả phòng ban (không giao cho managers)
             $users = User::with('department')
-                        ->where('department_id', $user->department_id)
+                        ->where('role', 'employee') // Chỉ giao việc cho employees
                         ->where('id', '!=', $user->id) // Không giao việc cho chính mình
                         ->orderBy('name')
-                        ->get(['id','name','department_id']);
+                        ->get(['id','name','department_id','role']);
+            
+            // Thêm những assignees hiện tại (bao gồm cả managers) để giữ nguyên dữ liệu
+            $currentAssignees = $task->assignees()->with('department')->get(['users.id','users.name','users.department_id','users.role']);
+            $currentAssigneeIds = $users->pluck('id')->toArray();
+            
+            foreach ($currentAssignees as $assignee) {
+                if (!in_array($assignee->id, $currentAssigneeIds)) {
+                    $users->push($assignee);
+                }
+            }
         } else {
-            // Employee không thể giao việc
-            $users = collect();
+            // Employee có thể xem tất cả users nhưng không thể thay đổi
+            $users = User::with('department')->orderBy('name')->get(['id','name','department_id','role']);
         }
         
         // Lấy danh sách departments
@@ -336,14 +394,35 @@ class TaskController extends Controller
     {
         $user = $request->user();
         
-        // Kiểm tra quyền cập nhật task
+        // Kiểm tra quyền cập nhật task (chỉ khi submit form)
         if ($user->isAdmin()) {
             // Admin có thể cập nhật mọi task
         } elseif ($user->isManager()) {
-            // Manager chỉ có thể cập nhật task của phòng ban mình
-            if ($task->assignee && $task->assignee->department_id !== $user->department_id &&
-                $task->creator && $task->creator->department_id !== $user->department_id) {
-                abort(403, 'Bạn chỉ có thể cập nhật task của phòng ban mình.');
+            // Manager có thể cập nhật task của phòng ban mình hoặc task đa phòng ban có sự tham gia của phòng ban mình
+            $canUpdate = false;
+            
+            // Kiểm tra task đơn phòng ban
+            if ($task->department_id === $user->department_id) {
+                $canUpdate = true;
+            }
+            
+            // Kiểm tra task đa phòng ban
+            if ($task->is_multi_department && $task->departments->contains('id', $user->department_id)) {
+                $canUpdate = true;
+            }
+            
+            // Kiểm tra assignees
+            if ($task->assignees->where('department_id', $user->department_id)->count() > 0) {
+                $canUpdate = true;
+            }
+            
+            // Kiểm tra creator
+            if ($task->creator && $task->creator->department_id === $user->department_id) {
+                $canUpdate = true;
+            }
+            
+            if (!$canUpdate) {
+                abort(403, 'Bạn chỉ có thể cập nhật task của phòng ban mình hoặc task đa phòng ban có sự tham gia của phòng ban mình.');
             }
         } else {
             // Employee chỉ có thể cập nhật task mà họ được assign hoặc tạo
@@ -389,6 +468,13 @@ class TaskController extends Controller
         $isMultiUser = $request->boolean('is_multi_user');
         $isMultiDepartment = $request->boolean('is_multi_department');
 
+        // Lấy danh sách assignees và managers hiện tại TRƯỚC KHI detach
+        $currentAssignees = $task->assignees()->pluck('users.id')->toArray();
+        $currentManagers = $task->assignees()
+            ->where('role', 'manager')
+            ->pluck('users.id')
+            ->toArray();
+        
         // Xóa các assignments cũ
         $task->assignees()->detach();
         $task->departments()->detach();
@@ -401,14 +487,34 @@ class TaskController extends Controller
             if ($user->isManager()) {
                 foreach ($assigneeIds as $assigneeId) {
                     $assignee = User::find($assigneeId);
-                    if ($assignee->department_id !== $user->department_id) {
-                        abort(403, 'Bạn chỉ có thể giao việc cho nhân viên cùng phòng ban.');
+                    
+                    // Kiểm tra xem assignee này có phải là assignee mới không
+                    $isNewAssignee = !in_array($assigneeId, $currentAssignees);
+                    
+                    // Nếu là assignee mới, kiểm tra quyền
+                    if ($isNewAssignee) {
+                        // Manager chỉ có thể giao việc cho employee, không giao cho manager khác
+                        if ($assignee && $assignee->role === 'manager') {
+                            abort(403, 'Bạn chỉ có thể giao việc cho nhân viên (employee), không thể giao việc cho manager khác.');
+                        }
+                        
+                        // Kiểm tra phòng ban (cho phép đa phòng ban)
+                        if ($assignee && (int)$assignee->department_id !== (int)$user->department_id) {
+                            // Nếu là task đa phòng ban, cho phép giao việc cho employee phòng ban khác
+                            if (!($isMultiDepartment && $request->has('department_ids'))) {
+                                abort(403, 'Bạn chỉ có thể giao việc cho nhân viên cùng phòng ban hoặc tạo task đa phòng ban.');
+                            }
+                        }
                     }
+                    // Nếu là assignee cũ, cho phép giữ nguyên hoặc bỏ chọn (không kiểm tra quyền)
                 }
             }
             
-            // Thêm assignments mới
-            $task->assignees()->attach($assigneeIds);
+            // Kết hợp assignees mới với managers hiện tại
+            $allAssigneeIds = array_unique(array_merge($assigneeIds, $currentManagers));
+            
+            // Sync tất cả assignees (bao gồm cả managers hiện tại)
+            $task->assignees()->sync($allAssigneeIds);
             $data['assignee_id'] = null; // Clear single assignee
             $data['is_multi_user'] = true;
         } elseif ($request->filled('assignee_id')) {
@@ -419,9 +525,26 @@ class TaskController extends Controller
             // Kiểm tra quyền theo phòng ban cho assignee
             if ($user->isManager()) {
                 $assignee = User::find($data['assignee_id']);
-                if ($assignee->department_id !== $user->department_id) {
-                    abort(403, 'Bạn chỉ có thể giao việc cho nhân viên cùng phòng ban.');
+                
+                // Sử dụng currentAssignees đã lấy trước đó
+                $isNewAssignee = !in_array($data['assignee_id'], $currentAssignees);
+                
+                // Nếu là assignee mới, kiểm tra quyền
+                if ($isNewAssignee) {
+                    // Manager chỉ có thể giao việc cho employee, không giao cho manager khác
+                    if ($assignee && $assignee->role === 'manager') {
+                        abort(403, 'Bạn chỉ có thể giao việc cho nhân viên (employee), không thể giao việc cho manager khác.');
+                    }
+                    
+                    // Kiểm tra phòng ban (cho phép đa phòng ban)
+                    if ($assignee && (int)$assignee->department_id !== (int)$user->department_id) {
+                        // Nếu là task đa phòng ban, cho phép giao việc cho employee phòng ban khác
+                        if (!($isMultiDepartment && $request->has('department_ids'))) {
+                            abort(403, 'Bạn chỉ có thể giao việc cho nhân viên cùng phòng ban hoặc tạo task đa phòng ban.');
+                        }
+                    }
                 }
+                // Nếu là assignee cũ, cho phép giữ nguyên hoặc bỏ chọn (không kiểm tra quyền)
             }
         } else {
             $data['assignee_id'] = null;
@@ -431,6 +554,23 @@ class TaskController extends Controller
         if ($isMultiDepartment && $request->has('department_ids') && is_array($request->department_ids)) {
             // Multi-department assignment
             $departmentIds = $request->department_ids;
+            
+            // Kiểm tra quyền cho multi-department
+            if ($user->isManager()) {
+                // Manager phải có phòng ban của mình trong danh sách
+                $hasOwnDepartment = false;
+                foreach ($departmentIds as $deptId) {
+                    if ((int)$deptId === (int)$user->department_id) {
+                        $hasOwnDepartment = true;
+                        break;
+                    }
+                }
+                
+                if (!$hasOwnDepartment) {
+                    abort(403, 'Task đa phòng ban phải bao gồm phòng ban của bạn.');
+                }
+            }
+            
             $task->departments()->attach($departmentIds);
             $data['department_id'] = null; // Clear single department
             $data['is_multi_department'] = true;
@@ -514,10 +654,31 @@ class TaskController extends Controller
         if ($user->isAdmin()) {
             // Admin có thể xóa mọi task
         } elseif ($user->isManager()) {
-            // Manager chỉ có thể xóa task của phòng ban mình
-            if ($task->assignee && $task->assignee->department_id !== $user->department_id &&
-                $task->creator && $task->creator->department_id !== $user->department_id) {
-                abort(403, 'Bạn chỉ có thể xóa task của phòng ban mình.');
+            // Manager có thể xóa task của phòng ban mình hoặc task đa phòng ban có sự tham gia của phòng ban mình
+            $canDelete = false;
+            
+            // Kiểm tra task đơn phòng ban
+            if ($task->department_id === $user->department_id) {
+                $canDelete = true;
+            }
+            
+            // Kiểm tra task đa phòng ban
+            if ($task->is_multi_department && $task->departments->contains('id', $user->department_id)) {
+                $canDelete = true;
+            }
+            
+            // Kiểm tra assignees
+            if ($task->assignees->where('department_id', $user->department_id)->count() > 0) {
+                $canDelete = true;
+            }
+            
+            // Kiểm tra creator
+            if ($task->creator && $task->creator->department_id === $user->department_id) {
+                $canDelete = true;
+            }
+            
+            if (!$canDelete) {
+                abort(403, 'Bạn chỉ có thể xóa task của phòng ban mình hoặc task đa phòng ban có sự tham gia của phòng ban mình.');
             }
         } else {
             // Employee chỉ có thể xóa task mà họ được assign hoặc tạo
@@ -546,10 +707,31 @@ class TaskController extends Controller
         if ($user->isAdmin()) {
             // Admin có thể cập nhật mọi task
         } elseif ($user->isManager()) {
-            // Manager chỉ có thể cập nhật task của phòng ban mình
-            if ($task->assignee && $task->assignee->department_id !== $user->department_id &&
-                $task->creator && $task->creator->department_id !== $user->department_id) {
-                abort(403, 'Bạn chỉ có thể cập nhật task của phòng ban mình.');
+            // Manager có thể cập nhật task của phòng ban mình hoặc task đa phòng ban có sự tham gia của phòng ban mình
+            $canUpdateStatus = false;
+            
+            // Kiểm tra task đơn phòng ban
+            if ($task->department_id === $user->department_id) {
+                $canUpdateStatus = true;
+            }
+            
+            // Kiểm tra task đa phòng ban
+            if ($task->is_multi_department && $task->departments->contains('id', $user->department_id)) {
+                $canUpdateStatus = true;
+            }
+            
+            // Kiểm tra assignees
+            if ($task->assignees->where('department_id', $user->department_id)->count() > 0) {
+                $canUpdateStatus = true;
+            }
+            
+            // Kiểm tra creator
+            if ($task->creator && $task->creator->department_id === $user->department_id) {
+                $canUpdateStatus = true;
+            }
+            
+            if (!$canUpdateStatus) {
+                abort(403, 'Bạn chỉ có thể cập nhật task của phòng ban mình hoặc task đa phòng ban có sự tham gia của phòng ban mình.');
             }
         } else {
             // Employee chỉ có thể cập nhật task mà họ được assign hoặc tạo
@@ -773,10 +955,31 @@ class TaskController extends Controller
         if ($user->isAdmin()) {
             // Admin có thể comment trên mọi task
         } elseif ($user->isManager()) {
-            // Manager chỉ có thể comment trên task của phòng ban mình
-            if ($task->assignee && $task->assignee->department_id !== $user->department_id &&
-                $task->creator && $task->creator->department_id !== $user->department_id) {
-                abort(403, 'Bạn chỉ có thể comment trên task của phòng ban mình.');
+            // Manager có thể comment trên task của phòng ban mình hoặc task đa phòng ban có sự tham gia của phòng ban mình
+            $canComment = false;
+            
+            // Kiểm tra task đơn phòng ban
+            if ($task->department_id === $user->department_id) {
+                $canComment = true;
+            }
+            
+            // Kiểm tra task đa phòng ban
+            if ($task->is_multi_department && $task->departments->contains('id', $user->department_id)) {
+                $canComment = true;
+            }
+            
+            // Kiểm tra assignees
+            if ($task->assignees->where('department_id', $user->department_id)->count() > 0) {
+                $canComment = true;
+            }
+            
+            // Kiểm tra creator
+            if ($task->creator && $task->creator->department_id === $user->department_id) {
+                $canComment = true;
+            }
+            
+            if (!$canComment) {
+                abort(403, 'Bạn chỉ có thể comment trên task của phòng ban mình hoặc task đa phòng ban có sự tham gia của phòng ban mình.');
             }
         } else {
             // Employee chỉ có thể comment trên task mà họ được assign hoặc tạo
@@ -873,10 +1076,31 @@ class TaskController extends Controller
         if ($user->isAdmin()) {
             // Admin có thể xem lịch sử mọi task
         } elseif ($user->isManager()) {
-            // Manager chỉ có thể xem lịch sử task của phòng ban mình
-            if ($task->assignee && $task->assignee->department_id !== $user->department_id &&
-                $task->creator && $task->creator->department_id !== $user->department_id) {
-                abort(403, 'Bạn chỉ có thể xem lịch sử task của phòng ban mình.');
+            // Manager có thể xem lịch sử task của phòng ban mình hoặc task đa phòng ban có sự tham gia của phòng ban mình
+            $canViewHistory = false;
+            
+            // Kiểm tra task đơn phòng ban
+            if ($task->department_id === $user->department_id) {
+                $canViewHistory = true;
+            }
+            
+            // Kiểm tra task đa phòng ban
+            if ($task->is_multi_department && $task->departments->contains('id', $user->department_id)) {
+                $canViewHistory = true;
+            }
+            
+            // Kiểm tra assignees
+            if ($task->assignees->where('department_id', $user->department_id)->count() > 0) {
+                $canViewHistory = true;
+            }
+            
+            // Kiểm tra creator
+            if ($task->creator && $task->creator->department_id === $user->department_id) {
+                $canViewHistory = true;
+            }
+            
+            if (!$canViewHistory) {
+                abort(403, 'Bạn chỉ có thể xem lịch sử task của phòng ban mình hoặc task đa phòng ban có sự tham gia của phòng ban mình.');
             }
         } else {
             // Employee chỉ có thể xem lịch sử task mà họ được assign hoặc tạo
@@ -906,10 +1130,31 @@ class TaskController extends Controller
         if ($user->isAdmin()) {
             // Admin có thể xóa file của mọi task
         } elseif ($user->isManager()) {
-            // Manager chỉ có thể xóa file của task phòng ban mình
-            if ($task->assignee && $task->assignee->department_id !== $user->department_id &&
-                $task->creator && $task->creator->department_id !== $user->department_id) {
-                return response()->json(['success' => false, 'message' => 'Bạn chỉ có thể xóa file của task phòng ban mình.']);
+            // Manager có thể xóa file của task phòng ban mình hoặc task đa phòng ban có sự tham gia của phòng ban mình
+            $canRemoveFile = false;
+            
+            // Kiểm tra task đơn phòng ban
+            if ($task->department_id === $user->department_id) {
+                $canRemoveFile = true;
+            }
+            
+            // Kiểm tra task đa phòng ban
+            if ($task->is_multi_department && $task->departments->contains('id', $user->department_id)) {
+                $canRemoveFile = true;
+            }
+            
+            // Kiểm tra assignees
+            if ($task->assignees->where('department_id', $user->department_id)->count() > 0) {
+                $canRemoveFile = true;
+            }
+            
+            // Kiểm tra creator
+            if ($task->creator && $task->creator->department_id === $user->department_id) {
+                $canRemoveFile = true;
+            }
+            
+            if (!$canRemoveFile) {
+                return response()->json(['success' => false, 'message' => 'Bạn chỉ có thể xóa file của task phòng ban mình hoặc task đa phòng ban có sự tham gia của phòng ban mình.']);
             }
         } else {
             // Employee chỉ có thể xóa file của task mà họ được assign hoặc tạo
