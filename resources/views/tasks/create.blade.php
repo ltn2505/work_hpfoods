@@ -247,21 +247,6 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator {
                 </button>
               </div>
               
-              {{-- Search box --}}
-              <div class="mb-3" id="searchSection" style="display: none;">
-                <label class="form-label fw-bold text-dark">Tìm kiếm</label>
-                <div class="input-group">
-                  <input type="text" id="userSearch" class="form-control border-2" placeholder="Tìm kiếm theo tên hoặc role...">
-                  <button type="button" id="clearSearch" class="btn btn-outline-secondary">
-                    <i class="fas fa-times"></i>
-                  </button>
-                </div>
-                <div class="form-text">
-                  <i class="fas fa-info-circle me-1"></i>
-                  Tìm kiếm theo tên hoặc role (Admin, Manager, Employee)
-                </div>
-              </div>
-              
               {{-- Multiple select users --}}
               <div id="userSelectSection" style="display: none;">
                 <label class="form-label fw-bold text-dark">Chọn người nhận</label>

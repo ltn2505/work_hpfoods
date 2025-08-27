@@ -18,7 +18,28 @@
         <div class="col-6">Deadline:
           <strong>{{ $task->deadline? $task->deadline->format('d/m/Y'):'—' }}</strong>
         </div>
-        <div class="col-6">Người nhận: <strong>{{ $task->assignee?->name ?? '—' }}</strong></div>
+        <div class="col-6">Người nhận: 
+          <strong>
+            @if($task->is_multi_user && $task->assignees->count() > 0)
+              {{ $task->assignees->count() }} người: {{ $task->assignees->pluck('name')->join(', ') }}
+            @elseif($task->assignee)
+              {{ $task->assignee->name }}
+            @else
+              —
+            @endif
+          </strong>
+        </div>
+        <div class="col-6">Phòng ban: 
+          <strong>
+            @if($task->is_multi_department && $task->departments->count() > 0)
+              {{ $task->departments->count() }} phòng ban: {{ $task->departments->pluck('name')->join(', ') }}
+            @elseif($task->department)
+              {{ $task->department->name }}
+            @else
+              —
+            @endif
+          </strong>
+        </div>
         <div class="col-6">Trạng thái: <strong>{{ __("statuses.$task->status") ?? strtoupper($task->status) }}</strong></div>
       </div>
     </div>

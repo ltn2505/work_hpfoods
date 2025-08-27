@@ -578,10 +578,10 @@
           $allTasks = $allTasks->filter(function($task) {
             if($task->is_multi_department) {
               // Kiểm tra xem task có assignee thuộc phòng ban được chọn không
-              return $task->assignedUsers->whereIn('department_id', request('department_filter'))->count() > 0;
+              return $task->assignees->whereIn('department_id', request('department_filter'))->count() > 0;
             } else {
               // Kiểm tra assignee đầu tiên
-              return $task->assignedUsers->first() && in_array($task->assignedUsers->first()->department_id, request('department_filter'));
+                              return $task->assignees->first() && in_array($task->assignees->first()->department_id, request('department_filter'));
             }
           });
         }
@@ -619,8 +619,8 @@
                   if($task->is_multi_department) {
                     $taskDepartment = 'Đa phòng ban';
                   } else {
-                    if($task->assignedUsers && $task->assignedUsers->count() > 0) {
-                      $taskDepartment = $task->assignedUsers->first()->department->name ?? 'Không xác định';
+                    if($task->assignees && $task->assignees->count() > 0) {
+                      $taskDepartment = $task->assignees->first()->department->name ?? 'Không xác định';
                     }
                   }
                 @endphp
@@ -632,20 +632,20 @@
                     @endif
                   </td>
                   <td class="px-4 py-3">
-                    @if($task->assignedUsers && $task->assignedUsers->count() > 0)
-                      @if($task->assignedUsers->count() == 1)
+                    @if($task->assignees && $task->assignees->count() > 0)
+                      @if($task->assignees->count() == 1)
                         <span class="badge bg-dark bg-opacity-10 text-dark border border-dark">
                           <i class="fas fa-user me-1"></i>
-                          {{ $task->assignedUsers->first()->name }}
+                          {{ $task->assignees->first()->name }}
                         </span>
                       @else
                         <span class="badge bg-dark bg-opacity-10 text-dark border border-dark cursor-pointer" 
                               data-bs-toggle="tooltip" 
                               data-bs-html="true"
-                              title="@foreach($task->assignedUsers as $assignee){{ $assignee->name }}<br>@endforeach"
+                              title="@foreach($task->assignees as $assignee){{ $assignee->name }}<br>@endforeach"
                               style="cursor: pointer;">
                           <i class="fas fa-users me-1"></i>
-                          {{ $task->assignedUsers->count() }} người
+                          {{ $task->assignees->count() }} người
                         </span>
                       @endif
                     @else
@@ -659,9 +659,11 @@
                             data-bs-html="true"
                             title="@php
                               $deptNames = [];
-                              foreach($task->assignedUsers->groupBy('department_id') as $deptId => $users) {
+                              foreach($task->assignees->groupBy('department_id') as $deptId => $users) {
                                 $dept = $users->first()->department;
-                                $deptNames[] = $dept->name;
+                                if ($dept) {
+                                  $deptNames[] = $dept->name;
+                                }
                               }
                               echo implode('<br>', $deptNames);
                             @endphp"
@@ -700,10 +702,10 @@
                         <i class="fas fa-play me-1"></i>Đang làm
                       @elseif($st == 'completed')
                         <i class="fas fa-hourglass-half me-1"></i>Chờ duyệt
-                      @elseif($st == 'rejected')
-                        <i class="fas fa-times me-1"></i>Từ chối
                       @elseif($st == 'overdue')
                         <i class="fas fa-exclamation-triangle me-1"></i>Trễ hạn
+                      @elseif($st == 'rejected')
+                        <i class="fas fa-times me-1"></i>Từ chối
                       @elseif($st == 'finished')
                         <i class="fas fa-flag-checkered me-1"></i>Kết thúc
                       @else
@@ -718,9 +720,11 @@
                             data-bs-html="true"
                             title="@php
                               $deptNames = [];
-                              foreach($task->assignedUsers->groupBy('department_id') as $deptId => $users) {
+                              foreach($task->assignees->groupBy('department_id') as $deptId => $users) {
                                 $dept = $users->first()->department;
-                                $deptNames[] = $dept->name;
+                                if ($dept) {
+                                  $deptNames[] = $dept->name;
+                                }
                               }
                               echo implode('<br>', $deptNames);
                             @endphp"
@@ -735,11 +739,13 @@
                   </td>
                   <td class="px-4 py-3 text-end">
                     <a href="{{ route('task-detail',$task) }}" class="btn btn-sm btn-outline-info">👁 Xem</a>
-                    <a href="{{ route('tasks.edit',$task) }}" class="btn btn-sm btn-outline-warning">✏️ Sửa</a>
-                    <form action="{{ route('tasks.destroy',$task) }}" method="POST" class="d-inline" data-confirm="Xoá công việc này?">
-                      @csrf @method('DELETE')
-                      <button class="btn btn-sm btn-outline-danger">✖ Xoá</button>
-                    </form>
+                    @if(auth()->user()->isAdmin() || auth()->user()->isManager())
+                      <a href="{{ route('tasks.edit',$task) }}" class="btn btn-sm btn-outline-warning">✏️ Sửa</a>
+                      <form action="{{ route('tasks.destroy',$task) }}" method="POST" class="d-inline" data-confirm="Xoá công việc này?">
+                        @csrf @method('DELETE')
+                        <button class="btn btn-sm btn-outline-danger">✖ Xoá</button>
+                      </form>
+                    @endif
                   </td>
                 </tr>
               @endforeach
@@ -749,6 +755,190 @@
       @else
         <div class="text-center py-4 text-muted">
           <p class="mb-0">Chưa có công việc nào.</p>
+        </div>
+      @endif
+    </div>
+  </div>
+@endif
+
+{{-- Hiển thị công việc cho Employee --}}
+@if(auth()->user()->isEmployee())
+  <div class="card shadow-sm border-0 mb-4">
+    <div class="card-header text-white d-flex align-items-center justify-content-between" style="background: linear-gradient(135deg, #6c757d 0%, #495057 100%);">
+      <h5 class="mb-0 fw-bold text-white">
+        <i class="bi bi-person-check me-2"></i>
+        📋 Công việc của tôi
+        <span class="badge bg-light text-dark ms-2">
+          {{ isset($tasks) ? $tasks->total() : 0 }} công việc
+        </span>
+      </h5>
+      <div class="d-flex align-items-center">
+        <span class="badge bg-secondary text-white me-2">
+          <i class="bi bi-person me-1"></i>
+          Nhân viên
+        </span>
+      </div>
+    </div>
+    
+    <div class="card-body p-0">
+      @if(isset($tasks) && $tasks->count() > 0)
+        <div class="table-responsive">
+          <table class="table table-hover mb-0">
+            <thead class="table-light">
+              <tr>
+                <th class="px-4 py-3 fw-semibold">Tiêu đề</th>
+                <th class="px-4 py-3 fw-semibold">Người giao việc</th>
+                <th class="px-4 py-3 fw-semibold">Phòng ban</th>
+                <th class="px-4 py-3 fw-semibold">Ngày giao</th>
+                <th class="px-4 py-3 fw-semibold">Deadline</th>
+                <th class="px-4 py-3 fw-semibold">Trạng thái</th>
+                <th class="px-4 py-3 fw-semibold">Loại</th>
+                <th class="px-4 py-3 fw-semibold text-end">Hành động</th>
+              </tr>
+            </thead>
+            <tbody>
+              @foreach($tasks as $task)
+                @php
+                  $st = $task->status;
+                  $badge = [
+                    'in_progress' => 'primary',
+                    'completed'   => 'warning',
+                    'rejected'    => 'danger',
+                    'overdue'     => 'danger',
+                    'finished'    => 'success',
+                  ][$st] ?? 'secondary';
+                  
+                  // Xác định phòng ban của task
+                  $taskDepartment = null;
+                  if($task->is_multi_department) {
+                    $taskDepartment = 'Đa phòng ban';
+                  } else {
+                    if($task->assignees && $task->assignees->count() > 0) {
+                      $taskDepartment = $task->assignees->first()->department->name ?? 'Không xác định';
+                    }
+                  }
+                @endphp
+                <tr class="border-bottom">
+                  <td class="px-4 py-3">
+                    <div class="fw-medium text-dark">{{ $task->title }}</div>
+                    @if($task->description)
+                      <small class="text-muted">{{ Str::limit($task->description, 50) }}</small>
+                    @endif
+                  </td>
+                  <td class="px-4 py-3">
+                    @if($task->creator)
+                      <span class="badge bg-dark bg-opacity-10 text-dark border border-dark">
+                        <i class="fas fa-user me-1"></i>
+                        {{ $task->creator->name }}
+                      </span>
+                    @else
+                      <span class="text-muted">—</span>
+                    @endif
+                  </td>
+                  <td class="px-4 py-3">
+                    @if($task->is_multi_department)
+                      <span class="badge bg-warning bg-opacity-10 text-dark border border-warning cursor-pointer" 
+                            data-bs-toggle="tooltip" 
+                            data-bs-html="true"
+                            title="@php
+                              $deptNames = [];
+                              foreach($task->assignees->groupBy('department_id') as $deptId => $users) {
+                                $dept = $users->first()->department;
+                                if ($dept) {
+                                  $deptNames[] = $dept->name;
+                                }
+                              }
+                              echo implode('<br>', $deptNames);
+                            @endphp"
+                            style="cursor: pointer;">
+                        <i class="fas fa-diagram-3 me-1"></i>
+                        {{ $taskDepartment }}
+                      </span>
+                    @else
+                      <span class="badge bg-success bg-opacity-10 text-dark border border-success">
+                        <i class="fas fa-building me-1"></i>
+                        {{ $taskDepartment }}
+                      </span>
+                    @endif
+                  </td>
+                  <td class="px-4 py-3">
+                    <span class="text-muted">{{ $task->created_at?->format('d/m/Y') }}</span>
+                  </td>
+                  <td class="px-4 py-3">
+                    @if($task->deadline)
+                      @php
+                        $isOverdue = $task->deadline < now() && !in_array($task->status, ['finished', 'completed']);
+                      @endphp
+                      <span class="{{ $isOverdue ? 'text-danger fw-bold' : '' }}">
+                        {{ $task->deadline->format('d/m/Y') }}
+                      </span>
+                      @if($isOverdue)
+                        <br><small class="text-danger">Trễ hạn</small>
+                      @endif
+                    @else
+                      <span class="text-muted">—</span>
+                    @endif
+                  </td>
+                  <td class="px-4 py-3">
+                    <span class="badge rounded-pill px-3 py-2 fw-medium bg-{{ $badge }} bg-opacity-10 text-dark border border-{{ $badge }}">
+                      @if($st == 'in_progress')
+                        <i class="fas fa-play me-1"></i>Đang làm
+                      @elseif($st == 'completed')
+                        <i class="fas fa-hourglass-half me-1"></i>Chờ duyệt
+                      @elseif($st == 'overdue')
+                        <i class="fas fa-exclamation-triangle me-1"></i>Trễ hạn
+                      @elseif($st == 'rejected')
+                        <i class="fas fa-times me-1"></i>Từ chối
+                      @elseif($st == 'finished')
+                        <i class="fas fa-flag-checkered me-1"></i>Kết thúc
+                      @else
+                        {{ strtoupper($st) }}
+                      @endif
+                    </span>
+                  </td>
+                  <td class="px-4 py-3">
+                    @if($task->is_multi_department)
+                      <span class="badge bg-warning bg-opacity-10 text-dark border border-warning cursor-pointer" 
+                            data-bs-toggle="tooltip" 
+                            data-bs-html="true"
+                            title="@php
+                              $deptNames = [];
+                              foreach($task->assignees->groupBy('department_id') as $deptId => $users) {
+                                $dept = $users->first()->department;
+                                if ($dept) {
+                                  $deptNames[] = $dept->name;
+                                }
+                              }
+                              echo implode('<br>', $deptNames);
+                            @endphp"
+                            style="cursor: pointer;">
+                        <i class="fas fa-diagram-3 me-1"></i>Đa phòng ban
+                      </span>
+                    @else
+                      <span class="badge bg-success bg-opacity-10 text-dark border border-success">
+                        <i class="fas fa-building me-1"></i>Đơn phòng ban
+                      </span>
+                    @endif
+                  </td>
+                  <td class="px-4 py-3 text-end">
+                    <a href="{{ route('task-detail',$task) }}" class="btn btn-sm btn-outline-info">👁 Xem</a>
+                    <a href="{{ route('tasks.updateStatus',$task) }}" class="btn btn-sm btn-outline-primary">🔄 Cập nhật</a>
+                  </td>
+                </tr>
+              @endforeach
+            </tbody>
+          </table>
+        </div>
+        
+        {{-- Pagination cho Employee --}}
+        @if($tasks->hasPages())
+          <div class="card-footer">
+            {{ $tasks->links() }}
+          </div>
+        @endif
+      @else
+        <div class="text-center py-4 text-muted">
+          <p class="mb-0">Bạn chưa có công việc nào được giao.</p>
         </div>
       @endif
     </div>

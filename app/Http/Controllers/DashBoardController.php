@@ -25,11 +25,11 @@ class DashboardController extends Controller
             $departmentTasks = [];
             foreach ($departments as $department) {
                 // Lấy task thực sự thuộc về phòng ban này
-                $query = Task::with(['assignedUsers', 'creator'])
+                $query = Task::with(['assignees.department', 'departments', 'creator'])
                             ->where('is_multi_department', false) // Chỉ hiển thị task đơn phòng ban
                             ->where(function($q) use ($department) {
                                 // Task có assignees thuộc phòng ban này
-                                $q->whereHas('assignedUsers', function($subQ) use ($department) {
+                                $q->whereHas('assignees', function($subQ) use ($department) {
                                     $subQ->where('department_id', $department->id);
                                 });
                             });
@@ -95,7 +95,7 @@ class DashboardController extends Controller
             ];
             
             // Lấy multi-department tasks
-            $multiDepartmentTasks = Task::with(['assignedUsers', 'creator'])
+            $multiDepartmentTasks = Task::with(['assignees.department', 'departments', 'creator'])
                 ->where('is_multi_department', true);
             
             // Filter theo trạng thái (hỗ trợ nhiều trạng thái)

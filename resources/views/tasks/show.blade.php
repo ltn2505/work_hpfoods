@@ -274,10 +274,19 @@
                 <div class="col-md-6 mb-2"><i class="bi bi-person-badge me-1"></i> <strong>Người giao:</strong> {{ $task->creator->name }}</div>
                 <div class="col-md-6 mb-2"><i class="bi bi-calendar-date me-1"></i> <strong>Ngày giao:</strong> {{ $task->created_at->format('d/m/Y') }}</div>
                 <div class="col-md-6 mb-2"><i class="bi bi-person me-1"></i> <strong>Người nhận:</strong> 
-                    @if($task->assignedUsers && $task->assignedUsers->count() > 0)
-                        @foreach($task->assignedUsers as $user)
-                            <span class="badge bg-primary me-1">{{ $user->name }}</span>
-                        @endforeach
+                    @if($task->assignees->count() > 0)
+                        {{ $task->assignees->count() }} người: {{ $task->assignees->pluck('name')->join(', ') }}
+                    @elseif($task->assignee)
+                        {{ $task->assignee->name }}
+                    @else
+                        —
+                    @endif
+                </div>
+                <div class="col-md-6 mb-2"><i class="bi bi-building me-1"></i> <strong>Phòng ban:</strong> 
+                    @if($task->departments->count() > 0)
+                        {{ $task->departments->count() }} phòng ban: {{ $task->departments->pluck('name')->join(', ') }}
+                    @elseif($task->department)
+                        {{ $task->department->name }}
                     @else
                         —
                     @endif

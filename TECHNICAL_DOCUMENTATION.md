@@ -195,7 +195,7 @@ Hệ thống sử dụng Laravel Breeze để xử lý xác thực người dùn
   - Kiểm tra tài khoản tồn tại trong database
   - Chuyển hướng đến form đặt lại mật khẩu
 - **Validation**: Tài khoản phải tồn tại trong hệ thống
-- **Bảo mật**: Sử dụng session để tracking, không cần token
+- **Bảo mật**: Sử dụng session để xác thực, không cần token
 
 #### Đặt lại mật khẩu (Reset Password)
 - **Route**: `POST /reset-password`
@@ -543,13 +543,13 @@ completed_at TIMESTAMP NULL
 ### Xử lý thời gian làm lại
 - **Khi bị từ chối**: Admin/Manager set thời gian làm lại (1-168 giờ)
 - **Tự động**: Hết hạn làm lại → chuyển về trạng thái "in_progress"
-- **Tracking**: Theo dõi thời gian đếm ngược
+- **Theo dõi**: Theo dõi thời gian đếm ngược
 
 ### Tính năng hoàn tác
 - **Điều kiện**: Chỉ có thể hoàn tác trong vòng 3 tiếng sau khi hoàn thành
 - **Quyền**: Chỉ người được giao việc mới có thể hoàn tác
 - **Hành động**: Chuyển từ trạng thái "completed" về "in_progress"
-- **Tracking**: Ghi log hoạt động và thời gian hoàn tác
+- **Ghi log**: Ghi log hoạt động và thời gian hoàn tác
 
 ### API Endpoints
 ```php
@@ -575,7 +575,7 @@ Tính năng hoàn tác cho phép người được giao việc (assignee) hoàn 
 - **Trạng thái**: Task phải ở trạng thái "completed"
 - **Thời gian**: Chỉ trong vòng 3 tiếng sau khi hoàn thành
 - **Quyền**: Chỉ người được giao việc mới có thể hoàn tác
-- **Tracking**: Sử dụng field `completed_at` để theo dõi thời gian
+- **Theo dõi**: Sử dụng field `completed_at` để theo dõi thời gian
 
 ### Cơ chế hoạt động
 ```php
