@@ -769,7 +769,7 @@
         <i class="bi bi-person-check me-2"></i>
         📋 Công việc của tôi
         <span class="badge bg-light text-dark ms-2">
-          {{ isset($tasks) ? $tasks->total() : 0 }} công việc
+          {{ isset($tasks) ? $tasks->count() : 0 }} công việc
         </span>
       </h5>
       <div class="d-flex align-items-center">
@@ -931,9 +931,9 @@
         </div>
         
         {{-- Pagination cho Employee --}}
-        @if($tasks->hasPages())
+        @if($tasks->count() > 0)
           <div class="card-footer">
-            {{ $tasks->links() }}
+                          {{-- Pagination removed - using Collection instead of Paginator --}}
           </div>
         @endif
       @else

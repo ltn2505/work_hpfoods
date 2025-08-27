@@ -272,31 +272,33 @@ class DashboardController extends Controller
             return view('welcome', compact('tasks','stats', 'managerMultiDepartmentTasks', 'managerDepartment', 'managerDepartmentTasks'));
             
         } else {
-            // Employee: Hiển thị cấu trúc phòng ban giống Admin nhưng chỉ thấy task của mình
-            $query = Task::with(['assignedUsers','creator'])
+            // Employee: Chỉ thấy tasks được giao cho mình
+            $query = Task::with(['assignees.department', 'departments', 'creator'])
                         ->where(function($q) use ($user) {
-                            $q->whereHas('assignedUsers', function($subQ) use ($user) {
-                                $subQ->where('users.id', $user->id);
-                            })
+                            // Tasks được giao trực tiếp (assignee_id)
+                            $q->where('assignee_id', $user->id)
+                            // Hoặc tasks được giao qua pivot table (task_assignees)
+                            ->orWhereRaw('id IN (SELECT task_id FROM task_assignees WHERE user_id = ?)', [$user->id])
+                            // Hoặc tasks được tạo bởi employee
                             ->orWhere('creator_id', $user->id);
                         });
             
             $stats = [
-                'doing'   => Task::whereHas('assignedUsers', function($q) use ($user) {
-                                $q->where('users.id', $user->id);
-                            })->where('status','in_progress')->count(),
-                'completed' => Task::whereHas('assignedUsers', function($q) use ($user) {
-                                $q->where('users.id', $user->id);
-                            })->where('status','completed')->count(),
-                'rejected' => Task::whereHas('assignedUsers', function($q) use ($user) {
-                                $q->where('users.id', $user->id);
-                            })->where('status','rejected')->count(),
-                'overdue' => Task::whereHas('assignedUsers', function($q) use ($user) {
-                                $q->where('users.id', $user->id);
-                            })->where('status','overdue')->count(),
-                'finished' => Task::whereHas('assignedUsers', function($q) use ($user) {
-                                $q->where('users.id', $user->id);
-                            })->where('status','finished')->count(),
+                'doing'   => Task::where('assignee_id', $user->id)
+                            ->orWhereRaw('id IN (SELECT task_id FROM task_assignees WHERE user_id = ?)', [$user->id])
+                            ->where('status','in_progress')->count(),
+                'completed' => Task::where('assignee_id', $user->id)
+                            ->orWhereRaw('id IN (SELECT task_id FROM task_assignees WHERE user_id = ?)', [$user->id])
+                            ->where('status','completed')->count(),
+                'rejected' => Task::where('assignee_id', $user->id)
+                            ->orWhereRaw('id IN (SELECT task_id FROM task_assignees WHERE user_id = ?)', [$user->id])
+                            ->where('status','rejected')->count(),
+                'overdue' => Task::where('assignee_id', $user->id)
+                            ->orWhereRaw('id IN (SELECT task_id FROM task_assignees WHERE user_id = ?)', [$user->id])
+                            ->where('status','overdue')->count(),
+                'finished' => Task::where('assignee_id', $user->id)
+                            ->orWhereRaw('id IN (SELECT task_id FROM task_assignees WHERE user_id = ?)', [$user->id])
+                            ->where('status','finished')->count(),
             ];
             
             // Filter theo trạng thái (hỗ trợ nhiều trạng thái)
@@ -324,13 +326,13 @@ class DashboardController extends Controller
                 if ($req->sort === 'newest') {
                     $query->latest();
                 } elseif ($req->sort === 'oldest') {
-                    $query->oldest();
+                    $query->latest();
                 }
             } else {
                 $query->latest(); // Mặc định sắp xếp mới nhất
             }
 
-            $tasks = $query->paginate(10);
+            $tasks = $query->get();
             return view('welcome', compact('tasks','stats'));
         }
     }
