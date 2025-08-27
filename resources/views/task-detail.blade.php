@@ -127,7 +127,29 @@
         <div class="comment-item">
           <strong>{{ $act->user->name }}</strong>
           <small class="text-muted ms-2">{{ $act->created_at->diffForHumans() }}</small>
-          <div>{{ $act->meta }}</div>
+          <div>
+            @if($act->action === 'comment' && $act->meta)
+              @php
+                $meta = json_decode($act->meta, true);
+              @endphp
+              @if($meta && isset($meta['content']))
+                {{ $meta['content'] }}
+                @if(isset($meta['attachments']) && !empty($meta['attachments']))
+                  <div class="mt-2">
+                    @foreach($meta['attachments'] as $attachment)
+                      <div class="file-attachment">
+                        📎 <a href="{{ $attachment['url'] }}" target="_blank">{{ $attachment['name'] }}</a>
+                      </div>
+                    @endforeach
+                  </div>
+                @endif
+              @else
+                {{ $act->meta }}
+              @endif
+            @else
+              {{ $act->meta }}
+            @endif
+          </div>
         </div>
       @empty
         <div class="text-muted">Chưa có bình luận.</div>
