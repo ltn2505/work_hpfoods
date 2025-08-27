@@ -623,17 +623,34 @@ function removeFile(fileIndex, fileName) {
             
             {{-- Hiển thị nút theo trạng thái và role --}}
             @if($task->status == 'in_progress')
-                @if($task->assignedUsers->where('id', auth()->id())->count() > 0)
-                    <a href="{{ route('tasks.updateStatus',[$task,'status'=>'completed']) }}" class="btn action-btn action-btn-green w-100 mb-2">✅ Hoàn thành & gửi duyệt</a>
+                @php
+                    $isAssigned = $task->assignee_id === auth()->id() || $task->assignees->contains('id', auth()->id());
+                    $canComplete = $isAssigned && (!auth()->user()->isEmployee() || !$task->is_multi_department);
+                @endphp
+                
+                @if($canComplete)
+                    <a href="{{ route('tasks.updateStatus',[$task,'status'=>'completed']) }}" class="btn action-btn action-btn-green w-100 mb-2">
+                        @if(auth()->user()->isEmployee())
+                            ✅ Hoàn thành & gửi duyệt
+                        @else
+                            ✅ Chuyển sang chờ duyệt
+                        @endif
+                    </a>
                 @endif
-                @if(auth()->user()->isAdmin() || auth()->user()->isManager())
-                    <a href="{{ route('tasks.updateStatus',[$task,'status'=>'completed']) }}" class="btn action-btn action-btn-green w-100 mb-2">✅ Chuyển sang chờ duyệt</a>
+                
+                @if(auth()->user()->isEmployee() && $isAssigned && $task->is_multi_department)
+                    <div class="alert alert-info mb-2">
+                        <small>ℹ️ Công việc đa phòng ban cần Manager phê duyệt để hoàn thành</small>
+                    </div>
                 @endif
             @endif
             
             @if($task->status == 'completed')
+                @php
+                    $isAssigned = $task->assignee_id === auth()->id() || $task->assignees->contains('id', auth()->id());
+                @endphp
                 {{-- Nút hoàn tác cho người được giao việc (chỉ trong vòng 3 tiếng) --}}
-                @if($task->assignedUsers->where('id', auth()->id())->count() > 0 && $task->canUndo())
+                @if($isAssigned && $task->canUndo())
                     <form action="{{ route('tasks.undoCompletion', $task) }}" method="POST" class="mb-2">
                         @csrf
                         <button type="submit" class="btn action-btn action-btn-warning w-100" onclick="return confirm('Bạn có chắc muốn hoàn tác công việc này?')">
@@ -648,7 +665,7 @@ function removeFile(fileIndex, fileName) {
                 @endif
                 
                 {{-- Thông báo không thể hoàn tác --}}
-                @if($task->assignedUsers->where('id', auth()->id())->count() > 0 && !$task->canUndo())
+                @if($isAssigned && !$task->canUndo())
                     <div class="alert alert-warning mb-2">
                         <small>⚠️ Không thể hoàn tác sau 3 tiếng kể từ khi hoàn thành</small>
                     </div>
@@ -656,13 +673,21 @@ function removeFile(fileIndex, fileName) {
             @endif
             
             @if($task->status == 'rejected')
-                @if($task->assignedUsers->where('id', auth()->id())->count() > 0)
+                @php
+                    $isAssigned = $task->assignee_id === auth()->id() || $task->assignees->contains('id', auth()->id());
+                    $canRedo = $isAssigned && (!auth()->user()->isEmployee() || !$task->is_multi_department);
+                @endphp
+                @if($canRedo)
                     <a href="{{ route('tasks.updateStatus',[$task,'status'=>'completed']) }}" class="btn action-btn action-btn-green w-100 mb-2">🔄 Đã làm lại & gửi duyệt</a>
                 @endif
             @endif
             
             @if($task->status == 'overdue')
-                @if($task->assignedUsers->where('id', auth()->id())->count() > 0)
+                @php
+                    $isAssigned = $task->assignee_id === auth()->id() || $task->assignees->contains('id', auth()->id());
+                    $canStart = $isAssigned && (!auth()->user()->isEmployee() || !$task->is_multi_department);
+                @endphp
+                @if($canStart)
                     <a href="{{ route('tasks.updateStatus',[$task,'status'=>'in_progress']) }}" class="btn action-btn action-btn-blue w-100 mb-2">🚀 Bắt đầu làm</a>
                 @endif
                 @if(auth()->user()->isAdmin() || auth()->user()->isManager())

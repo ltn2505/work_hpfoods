@@ -229,9 +229,17 @@ class TaskController extends Controller
             foreach ($r->assignee_ids as $assigneeId) {
                 $task->assignees()->attach($assigneeId);
             }
+            // Clear single assignee for multi-user tasks
+            $task->update(['assignee_id' => null]);
         } elseif ($r->filled('assignee_id')) {
-            // Single user assignment - cũng lưu vào pivot table để thống nhất
+            // Single user assignment - lưu vào cả assignee_id và pivot table
             $task->assignees()->attach($r->assignee_id);
+            $task->update(['assignee_id' => $r->assignee_id]);
+        } elseif ($r->has('assignee_ids') && is_array($r->assignee_ids) && count($r->assignee_ids) == 1) {
+            // Single user assignment (from assignee_ids array with only one item)
+            $assigneeId = $r->assignee_ids[0];
+            $task->assignees()->attach($assigneeId);
+            $task->update(['assignee_id' => $assigneeId]);
         }
 
         // Xử lý department assignments (cả single và multi)
@@ -293,6 +301,15 @@ class TaskController extends Controller
         $task->load(['activities' => function($query) {
             $query->orderBy('created_at', 'desc');
         }, 'activities.user']);
+        
+        // Debug: Log assignee data for troubleshooting
+        \Log::info('Task assignee data:', [
+            'task_id' => $task->id,
+            'assignee_id' => $task->assignee_id,
+            'assignees_count' => $task->assignees->count(),
+            'assignees' => $task->assignees->pluck('name')->toArray(),
+            'assignee_name' => $task->assignee ? $task->assignee->name : 'null',
+        ]);
         
         // Debug: Log task data for troubleshooting
         \Log::info('Task detail data:', [
@@ -802,16 +819,24 @@ class TaskController extends Controller
             return ['overdue'];
         }
         
+        // Kiểm tra xem user có được assign task này không
+        $isAssigned = $task->assignee_id === $user->id || 
+                     $task->assignees->contains('id', $user->id);
+        
         switch ($currentStatus) {
                 
             case 'in_progress':
-                // Role thấp có thể hoàn thành và gửi duyệt
-                if ($userRole === 'employee' && $task->assignee_id === $user->id) {
-                    return ['completed'];
+                if ($userRole === 'employee') {
+                    // Employee chỉ có thể hoàn thành task cá nhân (không phải multi-department)
+                    if ($isAssigned && !$task->is_multi_department) {
+                        return ['completed'];
+                    }
+                    // Employee không thể hoàn thành task multi-department
+                    return [];
                 }
-                // Role cao có thể thay đổi trạng thái
+                // Admin và Manager có thể thay đổi trạng thái
                 if (in_array($userRole, ['admin', 'manager'])) {
-                    return ['completed', 'approved', 'rejected'];
+                    return ['completed', 'rejected'];
                 }
                 break;
                 
@@ -823,20 +848,26 @@ class TaskController extends Controller
                 break;
                 
             case 'rejected':
-                // Role thấp có thể làm lại và gửi duyệt
-                if ($userRole === 'employee' && $task->assignee_id === $user->id) {
-                    return ['completed'];
+                if ($userRole === 'employee') {
+                    // Employee chỉ có thể làm lại task cá nhân
+                    if ($isAssigned && !$task->is_multi_department) {
+                        return ['completed'];
+                    }
+                    return [];
                 }
                 break;
                 
             case 'overdue':
-                // Có thể chuyển về in_progress nếu bắt đầu làm
-                if ($userRole === 'employee' && $task->assignee_id === $user->id) {
-                    return ['in_progress'];
+                if ($userRole === 'employee') {
+                    // Employee chỉ có thể bắt đầu làm task cá nhân
+                    if ($isAssigned && !$task->is_multi_department) {
+                        return ['in_progress'];
+                    }
+                    return [];
                 }
-                // Role cao có thể thay đổi trạng thái
+                // Admin và Manager có thể thay đổi trạng thái
                 if (in_array($userRole, ['admin', 'manager'])) {
-                    return ['in_progress', 'completed', 'approved', 'rejected'];
+                    return ['in_progress', 'completed', 'rejected'];
                 }
                 break;
         }
