@@ -106,7 +106,7 @@ body {
     }
     
     .card h6 {
-        font-size: 1rem !important;
+        font-size: 1.2rem !important;
         margin-bottom: 1rem !important;
     }
     
@@ -201,7 +201,7 @@ body {
     
     /* Chart cards */
     .card {
-        padding: 0.75rem !important;
+        padding: 1rem !important;
         margin-bottom: 0.75rem !important;
     }
     

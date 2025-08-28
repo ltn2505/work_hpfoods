@@ -274,6 +274,147 @@ body .container-fluid {
     .filter-section .btn-group .btn {
         flex: 1;
     }
+    
+    /* QUAN TRỌNG: Hiển thị tiêu đề bảng trên mobile với !important */
+    body .table thead th {
+        display: table-cell !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        font-size: 0.7rem !important;
+        padding: 6px 2px !important;
+        text-align: center !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%) !important;
+        color: #495057 !important;
+        font-weight: 600 !important;
+        text-transform: uppercase !important;
+        letter-spacing: 0.5px !important;
+        border-bottom: 2px solid #dee2e6 !important;
+        vertical-align: middle !important;
+        position: sticky !important;
+        top: 0 !important;
+        z-index: 10 !important;
+        width: auto !important;
+        min-width: 60px !important;
+        /* QUAN TRỌNG: Chỉ cột đầu tiên giữ nguyên vị trí */
+        position: relative !important;
+        background-attachment: scroll !important;
+    }
+    
+    /* CHỈ cột tiêu đề đầu tiên giữ nguyên vị trí khi scroll */
+    body .table thead th:first-child {
+        position: sticky !important;
+        left: 0 !important;
+        z-index: 20 !important;
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%) !important;
+        box-shadow: 2px 0 4px rgba(0,0,0,0.1) !important;
+    }
+    
+    /* QUAN TRỌNG: Nội dung cột đầu tiên cũng giữ nguyên vị trí */
+    body .table tbody td:first-child {
+        position: sticky !important;
+        left: 0 !important;
+        z-index: 15 !important;
+        background: white !important;
+        box-shadow: 2px 0 4px rgba(0,0,0,0.1) !important;
+    }
+    
+    /* Các cột khác di chuyển bình thường */
+    body .table thead th:not(:first-child) {
+        position: relative !important;
+        left: auto !important;
+        right: auto !important;
+        z-index: 10 !important;
+    }
+    
+    body .table tbody td:not(:first-child) {
+        position: relative !important;
+        left: auto !important;
+        right: auto !important;
+        z-index: 5 !important;
+    }
+    
+    /* Điều chỉnh width cho từng cột */
+    body .table thead th:first-child {
+        width: 20% !important;
+        text-align: left !important;
+        min-width: 80px !important;
+    }
+    
+    body .table thead th:nth-child(2) {
+        width: 12% !important;
+        min-width: 70px !important;
+    }
+    
+    body .table thead th:nth-child(3) {
+        width: 12% !important;
+        min-width: 70px !important;
+    }
+    
+    body .table thead th:nth-child(4) {
+        width: 10% !important;
+        min-width: 60px !important;
+    }
+    
+    body .table thead th:nth-child(5) {
+        width: 10% !important;
+        min-width: 60px !important;
+    }
+    
+    body .table thead th:nth-child(6) {
+        width: 10% !important;
+        min-width: 60px !important;
+    }
+    
+    body .table thead th:nth-child(7) {
+        width: 10% !important;
+        min-width: 60px !important;
+    }
+    
+    body .table thead th:nth-child(8) {
+        width: 10% !important;
+        min-width: 60px !important;
+    }
+    
+    body .table thead th:last-child {
+        width: 16% !important;
+        min-width: 80px !important;
+    }
+    
+    /* Responsive cho nội dung bảng */
+    body .table td {
+        font-size: 0.7rem !important;
+        padding: 4px 2px !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+        vertical-align: middle !important;
+        border: none !important;
+        display: table-cell !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+    }
+    
+    /* Đảm bảo bảng hiển thị đúng */
+    body .table {
+        display: table !important;
+        width: 100% !important;
+        table-layout: auto !important;
+    }
+    
+    body .table thead {
+        display: table-header-group !important;
+    }
+    
+    body .table tbody {
+        display: table-row-group !important;
+    }
+    
+    body .table tr {
+        display: table-row !important;
+    }
 }
 
 /* Filter styling */
@@ -302,6 +443,131 @@ body .container-fluid {
 .filter-section .btn-sm {
     border-radius: 6px;
     font-weight: 500;
+}
+
+/* Responsive cho mobile nhỏ */
+@media (max-width: 576px) {
+    /* QUAN TRỌNG: Hiển thị tiêu đề bảng trên mobile nhỏ với !important */
+    body .table thead th {
+        display: table-cell !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        font-size: 0.65rem !important;
+        padding: 4px 1px !important;
+        text-align: center !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%) !important;
+        color: #495057 !important;
+        font-weight: 600 !important;
+        text-transform: uppercase !important;
+        letter-spacing: 0.5px !important;
+        border-bottom: 2px solid #dee2e6 !important;
+        vertical-align: middle !important;
+        position: sticky !important;
+        top: 0 !important;
+        z-index: 10 !important;
+        width: auto !important;
+        min-width: 50px !important;
+    }
+    
+    body .table td {
+        font-size: 0.65rem !important;
+        padding: 3px 1px !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+        vertical-align: middle !important;
+        border: none !important;
+        display: table-cell !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+    }
+    
+    /* Điều chỉnh width cho mobile nhỏ */
+    body .table thead th:first-child {
+        width: 25% !important;
+        text-align: left !important;
+        min-width: 70px !important;
+    }
+    
+    body .table thead th:nth-child(2) {
+        width: 10% !important;
+        min-width: 60px !important;
+    }
+    
+    body .table thead th:nth-child(3) {
+        width: 10% !important;
+        min-width: 60px !important;
+    }
+    
+    body .table thead th:nth-child(4) {
+        width: 8% !important;
+        min-width: 50px !important;
+    }
+    
+    body .table thead th:nth-child(5) {
+        width: 8% !important;
+        min-width: 50px !important;
+    }
+    
+    body .table thead th:nth-child(6) {
+        width: 8% !important;
+        min-width: 50px !important;
+    }
+    
+    body .table thead th:nth-child(7) {
+        width: 8% !important;
+        min-width: 50px !important;
+    }
+    
+    body .table thead th:nth-child(8) {
+        width: 8% !important;
+        min-width: 50px !important;
+    }
+    
+    body .table thead th:last-child {
+        width: 15% !important;
+        min-width: 70px !important;
+    }
+    
+    /* QUAN TRỌNG: Nội dung cột đầu tiên cũng giữ nguyên vị trí trên mobile nhỏ */
+    body .table tbody td:first-child {
+        position: sticky !important;
+        left: 0 !important;
+        z-index: 15 !important;
+        background: white !important;
+        box-shadow: 2px 0 4px rgba(0,0,0,0.1) !important;
+    }
+    
+    /* Các cột khác di chuyển bình thường trên mobile nhỏ */
+    body .table tbody td:not(:first-child) {
+        position: relative !important;
+        left: auto !important;
+        right: auto !important;
+        z-index: 5 !important;
+    }
+    
+    /* Đảm bảo bảng hiển thị đúng trên mobile nhỏ */
+    body .table {
+        display: table !important;
+        width: 100% !important;
+        table-layout: auto !important;
+        font-size: 0.65rem !important;
+    }
+    
+    body .table thead {
+        display: table-header-group !important;
+    }
+    
+    body .table tbody {
+        display: table-row-group !important;
+    }
+    
+    body .table tr {
+        display: table-row !important;
+    }
 }
 </style>
 @endpush
