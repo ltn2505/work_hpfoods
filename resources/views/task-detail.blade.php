@@ -23,7 +23,16 @@
           @endif
         </span>
         <span class="badge bg-warning text-dark">
-          Độ ưu tiên: {{ ucfirst($task->priority ?? 'Medium') }}
+          Độ ưu tiên: 
+          @if($task->priority == 'high')
+            Cao
+          @elseif($task->priority == 'medium')
+            Trung bình
+          @elseif($task->priority == 'low')
+            Thấp
+          @else
+            Trung bình
+          @endif
         </span>
       </div>
     </div>
@@ -56,7 +65,17 @@
             @endif
           </strong>
         </div>
-        <div class="col-6">Độ ưu tiên: <strong>{{ ucfirst($task->priority ?? 'Medium') }}</strong></div>
+        <div class="col-6">Độ ưu tiên: <strong>
+          @if($task->priority == 'high')
+            Cao
+          @elseif($task->priority == 'medium')
+            Trung bình
+          @elseif($task->priority == 'low')
+            Thấp
+          @else
+            Trung bình
+          @endif
+        </strong></div>
         <div class="col-6">Ngày giao: <strong>{{ $task->created_at? $task->created_at->format('d/m/Y'):'—' }}</strong></div>
         <div class="col-6">Deadline:
           <strong>{{ $task->deadline? $task->deadline->format('d/m/Y'):'—' }}</strong>
@@ -244,15 +263,14 @@
         <a href="{{ route('tasks.updateStatus',[$task,'status'=>'completed']) }}" class="btn btn-success w-100 mb-2">✅ Hoàn thành & gửi duyệt lại</a>
       @endif
       
-      {{-- Nút từ chối (chỉ Admin/Manager khi task in_progress) --}}
+      {{-- Nút hoàn thành sớm (chỉ Admin/Manager khi task in_progress) --}}
       @if($task->status === 'in_progress' && (auth()->user()->isAdmin() || auth()->user()->isManager()))
-        <a href="{{ route('tasks.updateStatus',[$task,'status'=>'rejected']) }}" class="btn btn-danger w-100 mb-2">✖ Từ chối</a>
+        <a href="{{ route('tasks.updateStatus',[$task,'status'=>'finished']) }}" class="btn btn-success w-100 mb-2">✅ Hoàn thành sớm</a>
       @endif
       
-      {{-- Nút kết thúc và từ chối cho Admin/Manager khi task completed --}}
+      {{-- Nút kết thúc cho Admin/Manager khi task completed --}}
       @if($task->status === 'completed' && (auth()->user()->isAdmin() || auth()->user()->isManager()))
         <a href="{{ route('tasks.updateStatus',[$task,'status'=>'finished']) }}" class="btn btn-success w-100 mb-2">✅ Kết thúc</a>
-        <a href="{{ route('tasks.updateStatus',[$task,'status'=>'rejected']) }}" class="btn btn-danger w-100 mb-2">✖ Từ chối</a>
       @endif
       
       {{-- Nút hoàn tác (chỉ Employee, không phải Admin/Manager) --}}
@@ -267,7 +285,7 @@
       
       {{-- Nút cập nhật trạng thái --}}
       @if($task->status === 'in_progress')
-        <a href="{{ route('tasks.updateStatus',[$task,'status'=>'in_progress']) }}" class="btn btn-primary w-100 mb-2">🔄 Cập nhật trạng thái</a>
+        <a href="{{ route('tasks.updateStatus',[$task,'status'=>'in_progress']) }}" class="btn btn-primary w-100 mb-2">🔄 Load lại</a>
       @endif
       
       {{-- Nút xem lịch sử --}}

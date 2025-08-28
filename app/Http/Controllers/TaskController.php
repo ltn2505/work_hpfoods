@@ -851,15 +851,19 @@ class TaskController extends Controller
         if ($status === 'rejected' && $rejectionReason) {
             $updateData['rejection_reason'] = $rejectionReason;
         }
-        if ($status === 'finished' && $finishNote) {
-            $updateData['finish_note'] = $finishNote;
+        if ($status === 'finished') {
+            if ($finishNote) {
+                $updateData['finish_note'] = $finishNote;
+            }
+            // Nếu task đang in_progress thì set completed_at = now()
+            if ($task->status === 'in_progress') {
+                $updateData['completed_at'] = now();
+            }
         }
         
         // Set completed_at khi status = 'completed'
         if ($status === 'completed') {
             $updateData['completed_at'] = now();
-            // Xóa rejection_reason khi task được submit lại
-            $updateData['rejection_reason'] = null;
         }
         
         $task->update($updateData);
@@ -870,7 +874,7 @@ class TaskController extends Controller
             'completed' => $task->status === 'rejected' ? 'Đã hoàn thành và gửi duyệt lại' : 'Đã hoàn thành và gửi duyệt',
             'rejected' => 'Đã từ chối' . ($rejectionReason ? ': ' . $rejectionReason : ''),
             'overdue' => 'Đã trễ hạn',
-            'finished' => 'Đã kết thúc' . ($finishNote ? ': ' . $finishNote : '')
+            'finished' => $task->status === 'in_progress' ? 'Đã hoàn thành sớm' . ($finishNote ? ': ' . $finishNote : '') : 'Đã kết thúc' . ($finishNote ? ': ' . $finishNote : '')
         ];
         
         $task->activities()->create([
@@ -908,7 +912,7 @@ class TaskController extends Controller
                 }
                 // Admin và Manager có thể thay đổi trạng thái
                 if (in_array($userRole, ['admin', 'manager'])) {
-                    return ['completed', 'rejected'];
+                    return ['completed', 'finished'];
                 }
                 break;
                 
