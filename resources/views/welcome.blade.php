@@ -131,10 +131,65 @@
     transform: translateY(-1px);
 }
 
-/* Additional fixes for hover conflicts */
-.table-responsive {
-    border-spacing: 0 4px;
-    border-collapse: separate;
+/* Giao diện đơn giản - Hiển thị tiêu đề và mục thông tin thẳng hàng */
+/* Sử dụng CSS specificity cao nhất để ghi đè Bootstrap */
+body .table-responsive {
+    border-spacing: 0 !important;
+    border-collapse: separate !important;
+}
+
+body .table {
+    width: 100% !important;
+    border-collapse: separate !important;
+    border-spacing: 0 !important;
+    display: table !important;
+    table-layout: auto !important;
+}
+
+body .table th {
+    font-weight: 600 !important;
+    color: #495057 !important;
+    border-bottom: 2px solid #dee2e6 !important;
+    background: #f8f9fa !important;
+    padding: 12px 8px !important;
+    text-align: left !important;
+    vertical-align: top !important;
+    white-space: nowrap !important;
+}
+
+body .table td {
+    vertical-align: top !important;
+    border: none !important;
+    padding: 12px 8px !important;
+    border-bottom: 1px solid #f1f3f5 !important;
+    white-space: nowrap !important;
+}
+
+/* Tiêu đề cột đơn giản - Sử dụng specificity cao nhất */
+body .column-title {
+    font-weight: 700 !important;
+    color: #495057 !important;
+    font-size: 0.9rem !important;
+    margin-bottom: 8px !important;
+    display: block !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.5px !important;
+    background: #f8f9fa !important;
+    padding: 4px 8px !important;
+    border-radius: 4px !important;
+    border: 1px solid #dee2e6 !important;
+    margin-top: 0 !important;
+}
+
+/* Đảm bảo bottom-nav hiển thị */
+body .bottom-nav {
+    display: flex !important;
+}
+
+/* Điều chỉnh margin bottom cho main content */
+body .container-fluid {
+    margin-bottom: 90px !important;
+    padding-bottom: 20px !important;
 }
 
 .table tbody tr {
@@ -851,144 +906,153 @@
                     }
                   }
                 @endphp
-                <tr class="border-bottom">
-                  <td class="px-4 py-3">
-                    <div class="fw-medium text-dark task-title" 
-                         data-bs-toggle="tooltip" 
-                         data-bs-placement="top"
-                         data-bs-html="true"
-                         title="{{ $task->title }}"
-                         style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                      {{ $task->title }}
-                    </div>
-                    @if($task->description)
-                      <small class="text-muted">{{ Str::limit($task->description, 50) }}</small>
-                    @endif
-                  </td>
-                  <td class="px-4 py-3">
-                    @if($task->creator)
-                      <span class="badge bg-dark bg-opacity-10 text-dark border border-dark">
-                        <i class="fas fa-user me-1"></i>
-                        {{ $task->creator->name }}
-                      </span>
-                    @else
-                      <span class="text-muted">—</span>
-                    @endif
-                  </td>
-                  <td class="px-4 py-3">
-                    @if($task->is_multi_department)
-                      <span class="badge bg-warning bg-opacity-10 text-dark border border-warning cursor-pointer" 
-                            data-bs-toggle="tooltip" 
-                            data-bs-html="true"
-                            title="@php
-                              $deptNames = [];
-                              foreach($task->assignees->groupBy('department_id') as $deptId => $users) {
-                                $dept = $users->first()->department;
-                                if ($dept) {
-                                  $deptNames[] = $dept->name;
-                                }
-                              }
-                              echo implode('<br>', $deptNames);
-                            @endphp"
-                            style="cursor: pointer;">
-                        <i class="fas fa-diagram-3 me-1"></i>
-                        {{ $taskDepartment }}
-                      </span>
-                    @else
-                      <span class="badge bg-success bg-opacity-10 text-dark border border-success">
-                        <i class="fas fa-building me-1"></i>
-                        {{ $taskDepartment }}
-                      </span>
-                    @endif
-                  </td>
-                  <td class="px-4 py-3">
-                    <span class="text-muted">{{ $task->created_at?->format('d/m/Y') }}</span>
-                  </td>
-                  <td class="px-4 py-3">
-                    @if($task->deadline)
-                      @php
-                        $isOverdue = $task->deadline < now() && !in_array($task->status, ['finished', 'completed']);
-                      @endphp
-                      <span class="{{ $isOverdue ? 'text-danger fw-bold' : '' }}">
-                        {{ $task->deadline->format('d/m/Y') }}
-                      </span>
-                      @if($isOverdue)
-                        <br><small class="text-danger">Trễ hạn</small>
+                                  <tr class="border-bottom">
+                    <td class="px-4 py-3">
+                      <div class="column-title">Tiêu đề</div>
+                      <div class="fw-medium text-dark task-title" 
+                           data-bs-toggle="tooltip" 
+                           data-bs-placement="top"
+                           data-bs-html="true"
+                           title="{{ $task->title }}"
+                           style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                        {{ $task->title }}
+                      </div>
+                      @if($task->description)
+                        <small class="text-muted">{{ Str::limit($task->description, 50) }}</small>
                       @endif
-                    @else
-                      <span class="text-muted">—</span>
-                    @endif
-                  </td>
-                  <td class="px-4 py-3">
-                    <span class="badge rounded-pill px-3 py-2 fw-medium bg-{{ $badge }} bg-opacity-10 text-dark border border-{{ $badge }}">
-                      @if($st == 'in_progress')
-                        <i class="fas fa-play me-1"></i>Đang làm
-                      @elseif($st == 'completed')
-                        <i class="fas fa-hourglass-half me-1"></i>Chờ duyệt
-                      @elseif($st == 'overdue')
-                        <i class="fas fa-exclamation-triangle me-1"></i>Trễ hạn
-                      @elseif($st == 'rejected')
-                        <i class="fas fa-times me-1"></i>Từ chối
-                      @elseif($st == 'finished')
-                        <i class="fas fa-flag-checkered me-1"></i>Kết thúc
+                    </td>
+                    <td class="px-4 py-3">
+                      <div class="column-title">Người giao</div>
+                      @if($task->creator)
+                        <span class="badge bg-dark bg-opacity-10 text-dark border border-dark">
+                          <i class="fas fa-user me-1"></i>
+                          {{ $task->creator->name }}
+                        </span>
                       @else
-                        {{ strtoupper($st) }}
+                        <span class="text-muted">—</span>
                       @endif
-                    </span>
-                    @if($task->followers->contains('id', auth()->id()))
-                      <br><span class="badge rounded-pill px-2 py-1 fw-medium bg-info bg-opacity-10 text-info border border-info mt-1">
-                        <i class="fas fa-eye me-1"></i>Đang theo dõi
-                      </span>
-                    @endif
-                  </td>
-                  <td class="px-4 py-3">
-                    @if($task->followers->count() > 0)
-                      <span class="badge bg-info bg-opacity-10 text-info border border-info cursor-pointer" 
-                            data-bs-toggle="tooltip" 
-                            data-bs-html="true"
-                            title="@foreach($task->followers as $follower){{ $follower->name }}<br>@endforeach"
-                            style="cursor: pointer;">
-                        <i class="fas fa-eye me-1"></i>
-                        {{ $task->followers->count() }} người
-                      </span>
-                      @if($task->followers->contains('id', auth()->id()))
-                        <br><span class="badge rounded-pill px-2 py-1 fw-medium bg-success bg-opacity-10 text-success border border-success mt-1">
-                          <i class="fas fa-check me-1"></i>Đang theo dõi
+                    </td>
+                    <td class="px-4 py-3">
+                      <div class="column-title">Phòng ban</div>
+                      @if($task->is_multi_department)
+                        <span class="badge bg-warning bg-opacity-10 text-dark border border-warning cursor-pointer" 
+                              data-bs-toggle="tooltip" 
+                              data-bs-html="true"
+                              title="@php
+                                $deptNames = [];
+                                foreach($task->assignees->groupBy('department_id') as $deptId => $users) {
+                                  $dept = $users->first()->department;
+                                  if ($dept) {
+                                    $deptNames[] = $dept->name;
+                                  }
+                                }
+                                echo implode('<br>', $deptNames);
+                              @endphp"
+                              style="cursor: pointer;">
+                          <i class="fas fa-diagram-3 me-1"></i>
+                          {{ $taskDepartment }}
+                        </span>
+                      @else
+                        <span class="badge bg-success bg-opacity-10 text-dark border border-success">
+                          <i class="fas fa-building me-1"></i>
+                          {{ $taskDepartment }}
                         </span>
                       @endif
-                    @else
-                      <span class="text-muted">—</span>
-                    @endif
-                  </td>
-                  <td class="px-4 py-3">
-                    @if($task->is_multi_department)
-                      <span class="badge bg-warning bg-opacity-10 text-dark border border-warning cursor-pointer" 
-                            data-bs-toggle="tooltip" 
-                            data-bs-html="true"
-                            title="@php
-                              $deptNames = [];
-                              foreach($task->assignees->groupBy('department_id') as $deptId => $users) {
-                                $dept = $users->first()->department;
-                                if ($dept) {
-                                  $deptNames[] = $dept->name;
+                    </td>
+                    <td class="px-4 py-3">
+                      <div class="column-title">Ngày giao</div>
+                      <span class="text-muted">{{ $task->created_at?->format('d/m/Y') }}</span>
+                    </td>
+                    <td class="px-4 py-3">
+                      <div class="column-title">Deadline</div>
+                      @if($task->deadline)
+                        @php
+                          $isOverdue = $task->deadline < now() && !in_array($task->status, ['finished', 'completed']);
+                        @endphp
+                        <span class="{{ $isOverdue ? 'text-danger fw-bold' : '' }}">
+                          {{ $task->deadline->format('d/m/Y') }}
+                        </span>
+                        @if($isOverdue)
+                          <br><small class="text-danger">Trễ hạn</small>
+                        @endif
+                      @else
+                        <span class="text-muted">—</span>
+                      @endif
+                    </td>
+                    <td class="px-4 py-3">
+                      <div class="column-title">Trạng thái</div>
+                      <span class="badge rounded-pill px-3 py-2 fw-medium bg-{{ $badge }} bg-opacity-10 text-dark border border-{{ $badge }}">
+                        @if($st == 'in_progress')
+                          <i class="fas fa-play me-1"></i>Đang làm
+                        @elseif($st == 'completed')
+                          <i class="fas fa-hourglass-half me-1"></i>Chờ duyệt
+                        @elseif($st == 'overdue')
+                          <i class="fas fa-exclamation-triangle me-1"></i>Trễ hạn
+                        @elseif($st == 'rejected')
+                          <i class="fas fa-times me-1"></i>Từ chối
+                        @elseif($st == 'finished')
+                          <i class="fas fa-flag-checkered me-1"></i>Kết thúc
+                        @else
+                          {{ strtoupper($st) }}
+                        @endif
+                      </span>
+                      @if($task->followers->contains('id', auth()->id()))
+                        <br><span class="badge rounded-pill px-2 py-1 fw-medium bg-info bg-opacity-10 text-info border border-info mt-1">
+                          <i class="fas fa-eye me-1"></i>Đang theo dõi
+                        </span>
+                      @endif
+                    </td>
+                    <td class="px-4 py-3">
+                      <div class="column-title">Followers</div>
+                      @if($task->followers->count() > 0)
+                        <span class="badge bg-info bg-opacity-10 text-info border border-info cursor-pointer" 
+                              data-bs-toggle="tooltip" 
+                              data-bs-html="true"
+                              title="@foreach($task->followers as $follower){{ $follower->name }}<br>@endforeach"
+                              style="cursor: pointer;">
+                          <i class="fas fa-eye me-1"></i>
+                          {{ $task->followers->count() }} người
+                        </span>
+                        @if($task->followers->contains('id', auth()->id()))
+                          <br><span class="badge rounded-pill px-2 py-1 fw-medium bg-success bg-opacity-10 text-success border border-success mt-1">
+                            <i class="fas fa-check me-1"></i>Đang theo dõi
+                          </span>
+                        @endif
+                      @else
+                        <span class="text-muted">—</span>
+                      @endif
+                    </td>
+                    <td class="px-4 py-3">
+                      <div class="column-title">Loại</div>
+                      @if($task->is_multi_department)
+                        <span class="badge bg-warning bg-opacity-10 text-dark border border-warning cursor-pointer" 
+                              data-bs-toggle="tooltip" 
+                              data-bs-html="true"
+                              title="@php
+                                $deptNames = [];
+                                foreach($task->assignees->groupBy('department_id') as $deptId => $users) {
+                                  $dept = $users->first()->department;
+                                  if ($dept) {
+                                    $deptNames[] = $dept->name;
+                                  }
                                 }
-                              }
-                              echo implode('<br>', $deptNames);
-                            @endphp"
-                            style="cursor: pointer;">
-                        <i class="fas fa-diagram-3 me-1"></i>Đa phòng ban
-                      </span>
-                    @else
-                      <span class="badge bg-success bg-opacity-10 text-dark border border-success">
-                        <i class="fas fa-building me-1"></i>Đơn phòng ban
-                      </span>
-                    @endif
-                  </td>
-                  <td class="px-4 py-3 text-end" style="white-space: nowrap;">
-                    <a href="{{ route('task-detail',$task) }}" class="btn btn-sm btn-outline-info">👁 Xem</a>
-                    <a href="{{ route('tasks.updateStatus',$task) }}" class="btn btn-sm btn-outline-primary">🔄 Cập nhật</a>
-                  </td>
-                </tr>
+                                echo implode('<br>', $deptNames);
+                              @endphp"
+                              style="cursor: pointer;">
+                          <i class="fas fa-diagram-3 me-1"></i>Đa phòng ban
+                        </span>
+                      @else
+                        <span class="badge bg-success bg-opacity-10 text-dark border border-success">
+                          <i class="fas fa-building me-1"></i>Đơn phòng ban
+                        </span>
+                      @endif
+                    </td>
+                    <td class="px-4 py-3 text-end" style="white-space: nowrap;">
+                      <div class="column-title">Hành động</div>
+                      <a href="{{ route('task-detail',$task) }}" class="btn btn-sm btn-outline-info">👁 Xem</a>
+                      <a href="{{ route('tasks.updateStatus',$task) }}" class="btn btn-sm btn-outline-primary">🔄 Cập nhật</a>
+                    </td>
+                  </tr>
               @endforeach
             </tbody>
           </table>

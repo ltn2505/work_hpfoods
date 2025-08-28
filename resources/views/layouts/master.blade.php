@@ -40,6 +40,40 @@
       color: #e0e0e0;
     }
     
+    /* Giảm chiều cao navbar - làm cho nó nhỏ gọn hơn như trang tạo công việc */
+    .navbar {
+      padding: 0.15rem 1rem !important;
+      min-height: 35px !important;
+      height: 35px !important;
+      line-height: 1 !important;
+    }
+    
+    .navbar .navbar-brand {
+      font-size: 1rem !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      line-height: 1 !important;
+    }
+    
+    .navbar .btn {
+      padding: 0.2rem 0.4rem !important;
+      font-size: 0.75rem !important;
+      line-height: 1 !important;
+      height: auto !important;
+    }
+    
+    .navbar span {
+      font-size: 0.8rem !important;
+      line-height: 1 !important;
+    }
+    
+    .navbar .container-fluid {
+      padding: 0 !important;
+      height: 100% !important;
+      display: flex !important;
+      align-items: center !important;
+    }
+    
     /* Dark mode for cards and other elements */
     [data-theme="dark"] .card {
       background-color: #1e1e1e;
@@ -142,12 +176,36 @@
       bottom: 0;
       left: 0;
       right: 0;
+      width: 100vw;
+      max-width: 100vw;
       background: var(--bg-color);
       border-top: 1px solid var(--border-color);
       z-index: 1050;
       padding: 8px 0;
       box-shadow: 0 -2px 10px var(--shadow-color);
       transition: all 0.3s ease;
+      overflow: visible;
+      transform: none;
+      margin: 0;
+      visibility: visible;
+      opacity: 1;
+      pointer-events: auto;
+    }
+    
+    /* Ẩn bottom navigation trên PC - chỉ hiện trên mobile */
+    @media (min-width: 769px) {
+      .bottom-nav {
+        display: none !important;
+        visibility: hidden !important;
+        opacity: 0 !important;
+        pointer-events: none !important;
+      }
+      
+      /* Điều chỉnh spacing cho PC - không cần padding bottom */
+      body, .container-fluid, .main-content {
+        padding-bottom: 0 !important;
+        margin-bottom: 0 !important;
+      }
     }
     
     .bottom-nav .nav-item {
